@@ -32,3 +32,4 @@ htmlcov/
 # Docker
 docker-compose.override.yml
 pizzasaleapi_venv/
+authservice_userservice.txt
