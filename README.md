@@ -19,33 +19,33 @@ This project follows four complementary patterns:
 **4. Public reads, claim-gated writes** — `product-service`'s menu is openly browsable by anyone, but creating, updating, or deleting catalog data requires a JWT carrying `is_staff: true`. Authentication (who you are) and authorization (what you're allowed to do) are enforced as two distinct, separately-tested checks.
 
 ```text
-┌──────────────┐      ┌──────────────┐      ┌──────────────────┐
+┌──────────────┐      ┌──────────────┐      ┌────────────────────┐
 │ auth-service │      │ user-service │      │ product-service    │
-│  (FastAPI)   │      │  (FastAPI)   │      │  (FastAPI)          │
-└──────┬───────┘      └──────┬───────┘      └──────────┬──────────┘
-       │                     │                          │
-       │ on register:         │ GET/PATCH                │ GET (public):
-       │ publish               │ /users/{user_id}          │ categories, products
-       │ "user.registered"      │ (JWT, self-only)            │ POST/PATCH/DELETE
-       ▼                     │                          │ (JWT, is_staff only)
-┌─────────────────────────┐ │                          │
-│   RabbitMQ               │ │                          │
-│   exchange: user_events  │ │                          │
-│   (topic)                │ │                          │
-└────────────┬─────────────┘ │                          │
-             │ routing key:  │                          │
-             │ user.registered                          │
-             ▼               │                          │
-┌────────────────────────────┐                          │
-│ user-service-worker         │  (no connection to       │
-│ (separate container,        │   product-service —      │
-│  same image as user-service,│   each service only      │
-│  different entrypoint)      │   verifies JWTs via       │
-└────────────┬─────────────────┘  the shared secret)      │
-             │                                            │
-             ▼                                            │
+│  (FastAPI)   │      │  (FastAPI)   │      │  (FastAPI)         │
+└──────┬───────┘      └──────┬───────┘      └──────────┬─────────┘
+       │                     │                         │
+       │ on register:        │ GET/PATCH               │ GET (public):
+       │ publish             │ /users/{user_id}        │ categories, products
+       │ "user.registered"   │ (JWT, self-only)        │ POST/PATCH/DELETE
+       ▼                     │                         │ (JWT, is_staff only)
+┌─────────────────────────┐  │                         │
+│   RabbitMQ              │  │                         │
+│   exchange: user_events │  │                         │
+│   (topic)               │  │                         │
+└─────────┬───────────────┘  │                         │
+          │ routing key:     │                         │
+          │ user.registered  │                         │
+          ▼                  ▼                         │
+┌─────────────────────────────┐                        │
+│ user-service-worker         │                        │
+│ (separate container,        │                        │
+│  same image as user-service,│                        │
+│  different entrypoint)      │                        │
+└────────────┬────────────────┘                        │
+             │                                         │
+             ▼                                         ▼
 ┌──────────────────┐  ┌──────────────────┐  ┌─────────────────────┐
-│  auth_service_db  │  │  user_service_db  │  │  product_service_db  │
+│  auth_service_db │  │  user_service_db │  │  product_service_db │
 └──────────────────┘  └──────────────────┘  └─────────────────────┘
         \____________________  ____________________/
                               \/
