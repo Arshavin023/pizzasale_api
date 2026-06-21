@@ -1,0 +1,46 @@
+services:
+  auth-service:
+    build: ./auth-service
+    container_name: auth-service
+    restart: always
+
+    env_file:
+      - .env
+
+    environment:
+      DATABASE_URL: ${AUTH_DATABASE_URL}
+
+    extra_hosts:
+      # Lets containers resolve the host machine's Postgres, same name
+      # works on Linux, Mac, and Windows.
+      - "host.docker.internal:host-gateway"
+
+    ports:
+      - "8001:8000"
+
+    volumes:
+      - ./auth-service:/app
+
+  # Uncomment once user-service/app/* is actually implemented.
+  # Right now its files are empty, so building/running it will fail
+  # or start a container that does nothing.
+  #
+  # user-service:
+  #   build: ./user-service
+  #   container_name: user-service
+  #   restart: always
+  #
+  #   env_file:
+  #     - .env
+  #
+  #   environment:
+  #     DATABASE_URL: ${USER_DATABASE_URL}
+  #
+  #   extra_hosts:
+  #     - "host.docker.internal:host-gateway"
+  #
+  #   ports:
+  #     - "8002:8000"
+  #
+  #   volumes:
+  #     - ./user-service:/app
