@@ -12,3 +12,4 @@ werkzeug
 uuid6
 itsdangerous
 boto3
+pika
