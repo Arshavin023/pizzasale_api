@@ -1,20 +1,3 @@
-# from pydantic import BaseModel, EmailStr
-# from typing import Optional
-
-# class SignUpModel(BaseModel):
-#     username: str
-#     email: EmailStr
-#     password: str
-
-# class LoginModel(BaseModel):
-#     username: str
-#     password: str
-
-# class TokenResponse(BaseModel):
-#     access: str
-#     refresh: str
-#     token_type: str = "bearer"
-
 import re
 from pydantic import BaseModel, EmailStr, field_validator
 from typing import Optional

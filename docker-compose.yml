@@ -1,18 +1,43 @@
 services:
+  rabbitmq:
+    image: rabbitmq:4-management
+    container_name: rabbitmq
+    restart: always
+
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD}
+
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+
   auth-service:
     build: ./auth-service
     container_name: auth-service
     restart: always
+
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
 
     env_file:
       - .env
 
     environment:
       DATABASE_URL: ${AUTH_DATABASE_URL}
+      RABBITMQ_URL: amqp://${RABBITMQ_USER}:${RABBITMQ_PASSWORD}@rabbitmq:5672/
 
     extra_hosts:
-      # Lets containers resolve the host machine's Postgres, same name
-      # works on Linux, Mac, and Windows.
       - "host.docker.internal:host-gateway"
 
     ports:
@@ -21,26 +46,77 @@ services:
     volumes:
       - ./auth-service:/app
 
-  # Uncomment once user-service/app/* is actually implemented.
-  # Right now its files are empty, so building/running it will fail
-  # or start a container that does nothing.
-  #
-  # user-service:
-  #   build: ./user-service
-  #   container_name: user-service
-  #   restart: always
-  #
-  #   env_file:
-  #     - .env
-  #
-  #   environment:
-  #     DATABASE_URL: ${USER_DATABASE_URL}
-  #
-  #   extra_hosts:
-  #     - "host.docker.internal:host-gateway"
-  #
-  #   ports:
-  #     - "8002:8000"
-  #
-  #   volumes:
-  #     - ./user-service:/app
+  user-service:
+    build: ./user-service
+    container_name: user-service
+    restart: always
+
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+
+    env_file:
+      - .env
+
+    environment:
+      DATABASE_URL: ${USER_DATABASE_URL}
+      RABBITMQ_URL: amqp://${RABBITMQ_USER}:${RABBITMQ_PASSWORD}@rabbitmq:5672/
+
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+    ports:
+      - "8002:8000"
+
+    volumes:
+      - ./user-service:/app
+
+  # Separate process from user-service's API container — same image,
+  # different command. Consumes RabbitMQ events independently of HTTP
+  # traffic, so the two workloads can be scaled/restarted independently.
+  user-service-worker:
+    build: ./user-service
+    container_name: user-service-worker
+    restart: always
+
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+
+    env_file:
+      - .env
+
+    environment:
+      DATABASE_URL: ${USER_DATABASE_URL}
+      RABBITMQ_URL: amqp://${RABBITMQ_USER}:${RABBITMQ_PASSWORD}@rabbitmq:5672/
+
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+    volumes:
+      - ./user-service:/app
+
+    command: ["python", "-m", "app.workers.consumer"]
+
+  product-service:
+    build: ./product-service
+    container_name: product-service
+    restart: always
+
+    env_file:
+      - .env
+
+    environment:
+      DATABASE_URL: ${PRODUCT_DATABASE_URL}
+
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+    ports:
+      - "8003:8000"
+
+    volumes:
+      - ./product-service:/app
+
+volumes:
+  rabbitmq_data:
