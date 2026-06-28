@@ -7,11 +7,15 @@ __pycache__/
 .venv/
 venv/
 env/
+pizzasale_env/
+pizzasaletests_env
 
 # Environment files — never commit real secrets
 .env
 .env.*
 !.env.example
+files.txt
+entire_codebase.txt
 
 # Packaging/build artifacts
 *.egg-info/

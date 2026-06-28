@@ -1,0 +1,562 @@
+===== tests/conftest.py =====
+"""
+Auth-service test fixtures.
+"""
+import os
+import pytest
+import pytest_asyncio
+
+# ── Set env vars BEFORE any app module is imported ───────────────────────────
+os.environ.setdefault("JWT_SECRET", "test-secret-key-for-ci")
+os.environ.setdefault("RABBITMQ_URL", "amqp://guest:guest@localhost:5672/")
+os.environ.setdefault("SES_SENDER_EMAIL", "no-reply@test.example")
+# Point the app's own session module at SQLite before it's imported
+os.environ["DATABASE_URL"] = "sqlite+aiosqlite:///:memory:"
+
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy import event as sa_event
+from sqlalchemy.pool import StaticPool
+from httpx import AsyncClient, ASGITransport
+
+from app.db.base import Base
+
+TEST_DB_URL = "sqlite+aiosqlite:///:memory:"
+
+
+def _make_engine():
+    """
+    SQLite-compatible engine.
+    StaticPool: single shared in-memory DB across all connections in one test.
+    No pool_size/max_overflow — those are Postgres-only args.
+    """
+    return create_async_engine(
+        TEST_DB_URL,
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
+
+
+@pytest_asyncio.fixture(scope="function")
+async def engine():
+    _engine = _make_engine()
+    async with _engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+    yield _engine
+    async with _engine.begin() as conn:
+        await conn.run_sync(Base.metadata.drop_all)
+    await _engine.dispose()
+
+
+@pytest_asyncio.fixture(scope="function")
+async def db(engine):
+    Session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+    async with Session() as session:
+        yield session
+        await session.rollback()
+
+
+@pytest_asyncio.fixture(scope="function")
+async def client(engine):
+    from app.main import app
+    from app.db.session import get_db
+
+    Session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+
+    async def override_get_db():
+        async with Session() as session:
+            yield session
+
+    app.dependency_overrides[get_db] = override_get_db
+
+    async with AsyncClient(
+        transport=ASGITransport(app=app), base_url="http://test"
+    ) as ac:
+        yield ac
+
+    app.dependency_overrides.clear()
+
+
+# ── Token helpers ─────────────────────────────────────────────────────────────
+
+def make_staff_token() -> str:
+    from fastapi_jwt_auth2 import AuthJWT
+    from datetime import timedelta
+    auth = AuthJWT()
+    return auth.create_access_token(
+        subject="staffuser",
+        expires_time=timedelta(hours=1),
+        user_claims={"is_staff": True},
+    )
+
+
+def make_user_token(username: str = "testuser") -> str:
+    from fastapi_jwt_auth2 import AuthJWT
+    from datetime import timedelta
+    auth = AuthJWT()
+    return auth.create_access_token(
+        subject=username,
+        expires_time=timedelta(hours=1),
+        user_claims={"is_staff": False},
+    )
+===== tests/test_auth_routes.py =====
+"""
+End-to-end route tests for auth-service.
+All external I/O (SES, RabbitMQ) is mocked at the module level.
+"""
+import pytest
+from unittest.mock import patch, MagicMock
+
+from app.models.user import UserAuth
+from app.core.security import hash_password
+
+
+REGISTER_URL = "/auth/register"
+LOGIN_URL = "/auth/login"
+REFRESH_URL = "/auth/refresh"
+VERIFY_URL = "/auth/verify-email"
+
+VALID_PAYLOAD = {
+    "username": "uche",
+    "email": "uche@example.com",
+    "password": "Secure1!",
+}
+
+
+# ── /auth/register ────────────────────────────────────────────────────────────
+
+@pytest.mark.asyncio
+class TestRegisterRoute:
+
+    @patch("app.api.auth_routes.send_verification_email")
+    @patch("app.services.auth_service.publish_user_registered")
+    async def test_register_success_201(self, mock_pub, mock_email, client):
+        resp = await client.post(REGISTER_URL, json=VALID_PAYLOAD)
+        assert resp.status_code == 200
+        assert "verify your account" in resp.json()["message"].lower()
+
+    @patch("app.api.auth_routes.send_verification_email")
+    @patch("app.services.auth_service.publish_user_registered")
+    async def test_register_duplicate_username_409(self, mock_pub, mock_email, client):
+        await client.post(REGISTER_URL, json=VALID_PAYLOAD)
+        resp = await client.post(REGISTER_URL, json=VALID_PAYLOAD)
+        assert resp.status_code == 409
+        assert "Username already exists" in resp.json()["detail"]
+
+    @patch("app.api.auth_routes.send_verification_email")
+    @patch("app.services.auth_service.publish_user_registered")
+    async def test_register_duplicate_email_409(self, mock_pub, mock_email, client):
+        await client.post(REGISTER_URL, json=VALID_PAYLOAD)
+        other = {**VALID_PAYLOAD, "username": "other_uche"}
+        resp = await client.post(REGISTER_URL, json=other)
+        assert resp.status_code == 409
+        assert "Email already exists" in resp.json()["detail"]
+
+    @patch("app.api.auth_routes.send_verification_email")
+    @patch("app.services.auth_service.publish_user_registered")
+    async def test_register_email_failure_returns_201_with_detail(
+        self, mock_pub, mock_email, client
+    ):
+        mock_email.side_effect = RuntimeError("SES sandbox error")
+        resp = await client.post(REGISTER_URL, json=VALID_PAYLOAD)
+        # Account is created but email failed — route raises HTTPException(201)
+        assert resp.status_code == 201
+        assert "verification email could not be sent" in resp.json()["detail"]
+
+    async def test_register_weak_password_422(self, client):
+        resp = await client.post(
+            REGISTER_URL, json={**VALID_PAYLOAD, "password": "weak"}
+        )
+        assert resp.status_code == 422
+
+    async def test_register_invalid_email_422(self, client):
+        resp = await client.post(
+            REGISTER_URL, json={**VALID_PAYLOAD, "email": "not-an-email"}
+        )
+        assert resp.status_code == 422
+
+    async def test_register_missing_field_422(self, client):
+        resp = await client.post(REGISTER_URL, json={"username": "uche"})
+        assert resp.status_code == 422
+
+
+# ── /auth/verify-email ────────────────────────────────────────────────────────
+
+@pytest.mark.asyncio
+class TestVerifyEmailRoute:
+
+    @patch("app.api.auth_routes.send_verification_email")
+    @patch("app.services.auth_service.publish_user_registered")
+    async def test_verify_email_activates_user(self, mock_pub, mock_email, client):
+        await client.post(REGISTER_URL, json=VALID_PAYLOAD)
+
+        from app.utils.verification import generate_verification_token
+        token = generate_verification_token(VALID_PAYLOAD["email"])
+
+        resp = await client.get(f"{VERIFY_URL}?token={token}")
+        assert resp.status_code == 200
+        assert "verified" in resp.json()["message"].lower()
+
+    async def test_verify_invalid_token_400(self, client):
+        resp = await client.get(f"{VERIFY_URL}?token=bogus.token.value")
+        assert resp.status_code == 400
+
+    async def test_verify_unknown_email_token_404(self, client):
+        """Token is valid but no matching user exists."""
+        from app.utils.verification import generate_verification_token
+        token = generate_verification_token("ghost@example.com")
+        resp = await client.get(f"{VERIFY_URL}?token={token}")
+        assert resp.status_code == 404
+
+
+# ── /auth/login ───────────────────────────────────────────────────────────────
+
+@pytest.mark.asyncio
+class TestLoginRoute:
+
+    @pytest.fixture(autouse=True)
+    def _patch_externals(self):
+        with patch("app.services.auth_service.publish_user_registered"), \
+             patch("app.api.auth_routes.send_verification_email"):
+            yield
+
+    async def _register_and_activate(self, client):
+        await client.post(REGISTER_URL, json=VALID_PAYLOAD)
+        from app.utils.verification import generate_verification_token
+        token = generate_verification_token(VALID_PAYLOAD["email"])
+        await client.get(f"{VERIFY_URL}?token={token}")
+
+    async def test_login_returns_tokens(self, client):
+        await self._register_and_activate(client)
+        resp = await client.post(
+            LOGIN_URL, json={"username": "uche", "password": "Secure1!"}
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "access" in data
+        assert "refresh" in data
+        assert data["token_type"] == "bearer"
+
+    async def test_login_wrong_password_401(self, client):
+        await self._register_and_activate(client)
+        resp = await client.post(
+            LOGIN_URL, json={"username": "uche", "password": "Wrong1!"}
+        )
+        assert resp.status_code == 401
+
+    async def test_login_unverified_user_403(self, client):
+        """User registered but email not yet verified → 403."""
+        await client.post(REGISTER_URL, json=VALID_PAYLOAD)
+        resp = await client.post(
+            LOGIN_URL, json={"username": "uche", "password": "Secure1!"}
+        )
+        assert resp.status_code == 403
+        assert "verify your email" in resp.json()["detail"].lower()
+
+    async def test_login_nonexistent_user_401(self, client):
+        resp = await client.post(
+            LOGIN_URL, json={"username": "ghost", "password": "Secure1!"}
+        )
+        assert resp.status_code == 401
+
+
+# ── /auth/refresh ─────────────────────────────────────────────────────────────
+
+@pytest.mark.asyncio
+class TestRefreshRoute:
+
+    @pytest.fixture(autouse=True)
+    def _patch_externals(self):
+        with patch("app.services.auth_service.publish_user_registered"), \
+             patch("app.api.auth_routes.send_verification_email"):
+            yield
+
+    async def _get_tokens(self, client):
+        await client.post(REGISTER_URL, json=VALID_PAYLOAD)
+        from app.utils.verification import generate_verification_token
+        token = generate_verification_token(VALID_PAYLOAD["email"])
+        await client.get(f"{VERIFY_URL}?token={token}")
+        resp = await client.post(
+            LOGIN_URL, json={"username": "uche", "password": "Secure1!"}
+        )
+        return resp.json()
+
+    async def test_refresh_returns_new_access_token(self, client):
+        tokens = await self._get_tokens(client)
+        resp = await client.post(
+            REFRESH_URL,
+            headers={"Authorization": f"Bearer {tokens['refresh']}"},
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "access" in data
+        assert data["token_type"] == "bearer"
+
+    async def test_refresh_with_access_token_fails(self, client):
+        """Passing an access token to /refresh must be rejected."""
+        tokens = await self._get_tokens(client)
+        resp = await client.post(
+            REFRESH_URL,
+            headers={"Authorization": f"Bearer {tokens['access']}"},
+        )
+        assert resp.status_code == 422
+
+    async def test_refresh_without_token_fails(self, client):
+        resp = await client.post(REFRESH_URL)
+        assert resp.status_code == 401
+
+===== tests/test_auth_service.py =====
+"""
+Integration tests for AuthService — real async DB, mocked RabbitMQ & SES.
+"""
+import pytest
+import pytest_asyncio
+from unittest.mock import patch, AsyncMock, MagicMock
+
+from app.services.auth_service import AuthService, AuthError
+from app.schemas.auth_schema import SignUpModel, LoginModel
+from app.models.user import UserAuth
+from app.core.security import hash_password
+
+
+# ── Helpers ───────────────────────────────────────────────────────────────────
+
+def _signup(username="uche", email="uche@example.com", password="Secure1!"):
+    return SignUpModel(username=username, email=email, password=password)
+
+
+def _login(username="uche", password="Secure1!"):
+    return LoginModel(username=username, password=password)
+
+
+# ── Register ──────────────────────────────────────────────────────────────────
+
+@pytest.mark.asyncio
+class TestAuthServiceRegister:
+
+    @patch("app.services.auth_service.publish_user_registered")
+    async def test_register_creates_user(self, mock_publish, db):
+        user = await AuthService.register(db, _signup())
+        assert user.id is not None
+        assert user.username == "uche"
+        assert user.email == "uche@example.com"
+        assert user.is_active is False           # must be inactive until email verified
+        assert user.password != "Secure1!"       # must be hashed
+
+    @patch("app.services.auth_service.publish_user_registered")
+    async def test_register_publishes_event(self, mock_publish, db):
+        user = await AuthService.register(db, _signup())
+        mock_publish.assert_called_once_with(
+            user_id=user.id,
+            email=user.email,
+            username=user.username,
+        )
+
+    @patch("app.services.auth_service.publish_user_registered")
+    async def test_duplicate_username_raises_auth_error(self, mock_publish, db):
+        await AuthService.register(db, _signup())
+        with pytest.raises(AuthError, match="Username already exists"):
+            await AuthService.register(
+                db, _signup(email="other@example.com")
+            )
+
+    @patch("app.services.auth_service.publish_user_registered")
+    async def test_duplicate_email_raises_auth_error(self, mock_publish, db):
+        await AuthService.register(db, _signup())
+        with pytest.raises(AuthError, match="Email already exists"):
+            await AuthService.register(
+                db, _signup(username="otheruser")
+            )
+
+    @patch("app.services.auth_service.publish_user_registered")
+    async def test_publish_failure_does_not_raise(self, mock_publish, db):
+        """
+        publish_user_registered swallows its own exceptions internally (events.py).
+        The mock simulates a silent no-op failure — registration must still succeed.
+        """
+        mock_publish.return_value = None  # silent no-op, as events.py does on failure
+        user = await AuthService.register(db, _signup())
+        assert user.id is not None
+        mock_publish.assert_called_once()
+
+
+# ── Authenticate ──────────────────────────────────────────────────────────────
+
+@pytest.mark.asyncio
+class TestAuthServiceAuthenticate:
+
+    @pytest_asyncio.fixture(autouse=True)
+    async def seed_user(self, db):
+        user = UserAuth(
+            username="uche",
+            email="uche@example.com",
+            password=hash_password("Secure1!"),
+            is_active=True,
+        )
+        db.add(user)
+        await db.commit()
+        self.user_id = user.id
+
+    async def test_correct_credentials_returns_user(self, db):
+        result = await AuthService.authenticate(db, _login())
+        assert result is not None
+        assert result.username == "uche"
+
+    async def test_wrong_password_returns_none(self, db):
+        result = await AuthService.authenticate(db, _login(password="WrongPass1!"))
+        assert result is None
+
+    async def test_nonexistent_username_returns_none(self, db):
+        result = await AuthService.authenticate(
+            db, _login(username="nobody", password="Secure1!")
+        )
+        assert result is None
+
+
+# ── Activate user by email ────────────────────────────────────────────────────
+
+@pytest.mark.asyncio
+class TestActivateUser:
+
+    @pytest_asyncio.fixture(autouse=True)
+    async def seed_inactive_user(self, db):
+        user = UserAuth(
+            username="inactive_uche",
+            email="inactive@example.com",
+            password=hash_password("Secure1!"),
+            is_active=False,
+        )
+        db.add(user)
+        await db.commit()
+
+    async def test_activate_returns_true(self, db):
+        result = await AuthService.activate_user_by_email(db, "inactive@example.com")
+        assert result is True
+
+    async def test_activate_sets_is_active(self, db):
+        from sqlalchemy.future import select
+        await AuthService.activate_user_by_email(db, "inactive@example.com")
+        row = (await db.execute(
+            select(UserAuth).where(UserAuth.email == "inactive@example.com")
+        )).scalar_one_or_none()
+        assert row.is_active is True
+
+    async def test_activate_unknown_email_returns_false(self, db):
+        result = await AuthService.activate_user_by_email(db, "ghost@example.com")
+        assert result is False
+
+    async def test_activate_already_active_is_idempotent(self, db):
+        """Calling activate twice must not raise and must still return True."""
+        await AuthService.activate_user_by_email(db, "inactive@example.com")
+        result = await AuthService.activate_user_by_email(db, "inactive@example.com")
+        assert result is True
+===== tests/test_schemas_and_security.py =====
+"""
+Unit tests for auth-service schemas and security utilities.
+No DB or HTTP needed — pure Python.
+"""
+import pytest
+from pydantic import ValidationError
+
+from app.schemas.auth_schema import SignUpModel, validate_password_strength
+from app.core.security import hash_password, verify_password
+
+
+# ── Password validator ────────────────────────────────────────────────────────
+
+class TestPasswordValidator:
+
+    def test_valid_password_passes(self):
+        assert validate_password_strength("Secure1!") == "Secure1!"
+
+    def test_too_short_raises(self):
+        with pytest.raises(ValueError, match="at least 8 characters"):
+            validate_password_strength("Ab1!")
+
+    def test_no_uppercase_raises(self):
+        with pytest.raises(ValueError, match="uppercase"):
+            validate_password_strength("secure1!")
+
+    def test_no_digit_raises(self):
+        with pytest.raises(ValueError, match="number"):
+            validate_password_strength("Securepass!")
+
+    def test_no_special_char_raises(self):
+        with pytest.raises(ValueError, match="special character"):
+            validate_password_strength("Secure123")
+
+    def test_exactly_8_chars_passes(self):
+        assert validate_password_strength("Abcde1!x") == "Abcde1!x"
+
+    @pytest.mark.parametrize("special", list('!@#$%^&*(),.?":{}|<>_-+=[]\\;\'`~'))
+    def test_various_special_chars_accepted(self, special):
+        pwd = f"Secure1{special}"
+        assert validate_password_strength(pwd) == pwd
+
+
+# ── SignUpModel schema ────────────────────────────────────────────────────────
+
+class TestSignUpModel:
+
+    def test_valid_signup(self):
+        m = SignUpModel(username="uche", email="uche@example.com", password="Secure1!")
+        assert m.username == "uche"
+        assert m.email == "uche@example.com"
+
+    def test_invalid_email_rejected(self):
+        with pytest.raises(ValidationError):
+            SignUpModel(username="uche", email="not-an-email", password="Secure1!")
+
+    def test_weak_password_rejected(self):
+        with pytest.raises(ValidationError, match="uppercase"):
+            SignUpModel(username="uche", email="uche@example.com", password="weak123!")
+
+    def test_password_stored_as_provided(self):
+        """Schema must not hash the password — that's the service layer's job."""
+        m = SignUpModel(username="uche", email="uche@example.com", password="Secure1!")
+        assert m.password == "Secure1!"
+
+
+# ── Password hashing ──────────────────────────────────────────────────────────
+
+class TestSecurity:
+
+    def test_hash_is_not_plaintext(self):
+        h = hash_password("Secure1!")
+        assert h != "Secure1!"
+
+    def test_verify_correct_password(self):
+        h = hash_password("Secure1!")
+        assert verify_password("Secure1!", h) is True
+
+    def test_verify_wrong_password(self):
+        h = hash_password("Secure1!")
+        assert verify_password("WrongPassword1!", h) is False
+
+    def test_two_hashes_of_same_password_differ(self):
+        """Werkzeug uses salted hashing — same input never produces same hash."""
+        h1 = hash_password("Secure1!")
+        h2 = hash_password("Secure1!")
+        assert h1 != h2
+
+    def test_hash_is_string(self):
+        assert isinstance(hash_password("Secure1!"), str)
+
+
+# ── Verification token ────────────────────────────────────────────────────────
+
+class TestVerificationToken:
+
+    def test_round_trip(self):
+        from app.utils.verification import generate_verification_token, confirm_verification_token
+        token = generate_verification_token("uche@example.com")
+        assert confirm_verification_token(token) == "uche@example.com"
+
+    def test_tampered_token_returns_none(self):
+        from app.utils.verification import confirm_verification_token
+        assert confirm_verification_token("tampered.token.value") is None
+
+    def test_empty_token_returns_none(self):
+        from app.utils.verification import confirm_verification_token
+        assert confirm_verification_token("") is None
+

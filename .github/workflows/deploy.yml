@@ -1,0 +1,317 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      service:
+        description: "Deploy a single service (leave blank for full deploy)"
+        required: false
+        type: choice
+        options: ["", "auth-service", "user-service", "product-service"]
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false  # never cancel a deploy mid-flight
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_PREFIX: ${{ github.repository_owner }}/pizzasale
+
+# ── Required GitHub Secrets ────────────────────────────────────────────────────
+# DEPLOY_HOST           — server IP / hostname
+# DEPLOY_USER           — SSH user (e.g. ubuntu)
+# DEPLOY_SSH_KEY        — private SSH key (RSA or Ed25519)
+# AUTH_DATABASE_URL     — postgresql+asyncpg://...
+# USER_DATABASE_URL     — postgresql+asyncpg://...
+# PRODUCT_DATABASE_URL  — postgresql+asyncpg://...
+# RABBITMQ_USER
+# RABBITMQ_PASSWORD
+# JWT_SECRET
+# SES_SENDER_EMAIL
+# AWS_REGION
+# AWS_ACCESS_KEY_ID
+# AWS_SECRET_ACCESS_KEY
+# SLACK_WEBHOOK_URL     — optional, for failure alerts
+# ──────────────────────────────────────────────────────────────────────────────
+
+jobs:
+  # ── 1. Gate: all tests must be green ────────────────────────────────────────
+  run-tests:
+    name: Run tests (gate)
+    uses: ./.github/workflows/test.yml
+    secrets: inherit
+
+  # ── 2. Build & push images ───────────────────────────────────────────────────
+  build:
+    name: Build ${{ matrix.service }}
+    runs-on: ubuntu-latest
+    needs: run-tests
+
+    permissions:
+      contents: read
+      packages: write
+
+    strategy:
+      fail-fast: false   # if one build fails, don't cancel the others
+      matrix:
+        include:
+          - service: auth-service
+            context: ./auth-service
+          - service: user-service
+            context: ./user-service
+          - service: product-service
+            context: ./product-service
+
+    # Skip individual service builds when workflow_dispatch targets one service
+    # and this matrix entry isn't that service
+    if: >
+      github.event_name != 'workflow_dispatch' ||
+      github.event.inputs.service == '' ||
+      github.event.inputs.service == matrix.service
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract image metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-${{ matrix.service }}
+          tags: |
+            # Immutable tag tied to the exact commit — used in deployment
+            type=sha,prefix=,format=short
+            # Mutable latest tag updated on every main-branch push
+            type=raw,value=latest,enable={{is_default_branch}}
+            # Branch tag for traceability (e.g. main-abc1234)
+            type=ref,event=branch
+
+      - name: Build and push
+        id: build
+        uses: docker/build-push-action@v5
+        with:
+          context: ${{ matrix.context }}
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          # Registry-backed layer cache — free on GHCR, fast on repeat builds
+          cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-${{ matrix.service }}:cache
+          cache-to: type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-${{ matrix.service }}:cache,mode=max
+          # Build args expose the commit SHA inside the image for /version endpoints
+          build-args: |
+            GIT_SHA=${{ github.sha }}
+
+      - name: Output image digest
+        run: echo "Built ${{ matrix.service }}@${{ steps.build.outputs.digest }}"
+
+  # ── 3. Run Alembic migrations ────────────────────────────────────────────────
+  # Migrations run BEFORE containers are updated so the new schema is in place
+  # before new code tries to use it. If a migration fails the deploy stops here.
+  migrate:
+    name: Run migrations
+    runs-on: ubuntu-latest
+    needs: build
+    environment: production
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install Alembic deps (auth-service)
+        working-directory: auth-service
+        run: pip install -r requirements.txt
+
+      - name: Run auth-service migrations
+        if: >
+          github.event.inputs.service == '' ||
+          github.event.inputs.service == 'auth-service'
+        env:
+          DATABASE_URL: ${{ secrets.AUTH_DATABASE_URL }}
+        working-directory: auth-service
+        run: alembic upgrade head
+
+      - name: Install Alembic deps (user-service)
+        working-directory: user-service
+        run: pip install -r requirements.txt
+
+      - name: Run user-service migrations
+        if: >
+          github.event.inputs.service == '' ||
+          github.event.inputs.service == 'user-service'
+        env:
+          DATABASE_URL: ${{ secrets.USER_DATABASE_URL }}
+        working-directory: user-service
+        run: alembic upgrade head
+
+      - name: Install Alembic deps (product-service)
+        working-directory: product-service
+        run: pip install -r requirements.txt
+
+      - name: Run product-service migrations
+        if: >
+          github.event.inputs.service == '' ||
+          github.event.inputs.service == 'product-service'
+        env:
+          DATABASE_URL: ${{ secrets.PRODUCT_DATABASE_URL }}
+        working-directory: product-service
+        run: alembic upgrade head
+
+  # ── 4. Deploy to server ──────────────────────────────────────────────────────
+  deploy:
+    name: Deploy to production
+    runs-on: ubuntu-latest
+    needs: migrate
+    environment: production
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Compute image tag
+        id: tag
+        run: echo "sha=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Copy compose file to server
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          source: docker-compose.yml
+          target: ~/pizzasale_api
+
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        env:
+          IMAGE_TAG: ${{ steps.tag.outputs.sha }}
+          REGISTRY: ${{ env.REGISTRY }}
+          IMAGE_PREFIX: ${{ env.IMAGE_PREFIX }}
+          TARGET_SERVICE: ${{ github.event.inputs.service }}
+          # Runtime secrets injected into the server's .env
+          AUTH_DATABASE_URL: ${{ secrets.AUTH_DATABASE_URL }}
+          USER_DATABASE_URL: ${{ secrets.USER_DATABASE_URL }}
+          PRODUCT_DATABASE_URL: ${{ secrets.PRODUCT_DATABASE_URL }}
+          RABBITMQ_USER: ${{ secrets.RABBITMQ_USER }}
+          RABBITMQ_PASSWORD: ${{ secrets.RABBITMQ_PASSWORD }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          SES_SENDER_EMAIL: ${{ secrets.SES_SENDER_EMAIL }}
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          envs: IMAGE_TAG,REGISTRY,IMAGE_PREFIX,TARGET_SERVICE,AUTH_DATABASE_URL,USER_DATABASE_URL,PRODUCT_DATABASE_URL,RABBITMQ_USER,RABBITMQ_PASSWORD,JWT_SECRET,SES_SENDER_EMAIL,AWS_REGION,AWS_ACCESS_KEY_ID,AWS_SECRET_ACCESS_KEY
+          script: |
+            set -euo pipefail
+            cd ~/pizzasale_api
+
+            # Authenticate with GHCR so the server can pull private images
+            echo "${{ secrets.GITHUB_TOKEN }}" \
+              | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+            # Write .env from secrets — never hard-code credentials in the repo
+            cat > .env << ENVEOF
+            AUTH_DATABASE_URL=${AUTH_DATABASE_URL}
+            USER_DATABASE_URL=${USER_DATABASE_URL}
+            PRODUCT_DATABASE_URL=${PRODUCT_DATABASE_URL}
+            RABBITMQ_USER=${RABBITMQ_USER}
+            RABBITMQ_PASSWORD=${RABBITMQ_PASSWORD}
+            JWT_SECRET=${JWT_SECRET}
+            SES_SENDER_EMAIL=${SES_SENDER_EMAIL}
+            AWS_REGION=${AWS_REGION}
+            AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+            AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+            ENVEOF
+            chmod 600 .env
+
+            # Override compose build: directives with pre-built registry images.
+            # docker compose will pull these instead of rebuilding locally.
+            export AUTH_IMAGE=${REGISTRY}/${IMAGE_PREFIX}-auth-service:${IMAGE_TAG}
+            export USER_IMAGE=${REGISTRY}/${IMAGE_PREFIX}-user-service:${IMAGE_TAG}
+            export PRODUCT_IMAGE=${REGISTRY}/${IMAGE_PREFIX}-product-service:${IMAGE_TAG}
+
+            if [ -n "${TARGET_SERVICE}" ]; then
+              # Targeted single-service deploy (e.g. hotfix)
+              echo "Deploying single service: ${TARGET_SERVICE}"
+              docker compose pull "${TARGET_SERVICE}"
+              # user-service-worker uses the same image as user-service
+              if [ "${TARGET_SERVICE}" = "user-service" ]; then
+                docker compose pull user-service-worker
+                docker compose up -d --no-deps user-service user-service-worker
+              else
+                docker compose up -d --no-deps "${TARGET_SERVICE}"
+              fi
+            else
+              # Full deploy — pull all images then restart everything
+              docker compose pull
+              docker compose up -d --remove-orphans
+            fi
+
+            # ── Smoke check ───────────────────────────────────────────────────
+            # Wait for containers to settle, then verify all are running.
+            # Exits non-zero if any container is not in 'running' state,
+            # which fails the workflow and surfaces the issue immediately.
+            sleep 20
+            docker compose ps --format json \
+              | python3 -c "
+            import sys, json
+            lines = [l for l in sys.stdin if l.strip()]
+            services = [json.loads(l) for l in lines]
+            failed = [s['Name'] for s in services if s.get('State') != 'running']
+            if failed:
+                print('SMOKE CHECK FAILED — not running:', failed)
+                sys.exit(1)
+            print('Smoke check passed —', len(services), 'containers running.')
+            "
+
+            # ── Health checks ─────────────────────────────────────────────────
+            # Hit each service's /health endpoint through Docker's internal
+            # network so we confirm the app itself is up, not just the process.
+            for port in 8001 8002 8003; do
+              status=$(curl -sf -o /dev/null -w "%{http_code}" \
+                --retry 5 --retry-delay 3 \
+                http://localhost:${port}/health || echo "000")
+              if [ "${status}" != "200" ]; then
+                echo "Health check FAILED for port ${port} (got ${status})"
+                exit 1
+              fi
+              echo "Health check OK: port ${port}"
+            done
+
+            # ── Cleanup ───────────────────────────────────────────────────────
+            docker image prune -f
+            echo "Deploy complete: ${IMAGE_TAG}"
+
+  # ── 5. Notify on failure ─────────────────────────────────────────────────────
+  notify-failure:
+    name: Notify on failure
+    runs-on: ubuntu-latest
+    needs: [run-tests, build, migrate, deploy]
+    if: failure()
+
+    steps:
+      - name: Post Slack alert
+        uses: slackapi/slack-github-action@v1.26.0
+        with:
+          payload: |
+            {
+              "text": ":red_circle: *pizzasale_api* deploy failed on `${{ github.ref_name }}`\nCommit: `${{ github.sha }}`\nActor: ${{ github.actor }}\n<${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View run>"
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          SLACK_WEBHOOK_TYPE: INCOMING_WEBHOOK

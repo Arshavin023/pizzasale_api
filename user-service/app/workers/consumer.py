@@ -4,7 +4,7 @@ import logging
 import asyncio
 import pika
 
-from app.db.session import AsyncSessionLocal
+from app.db.session import SessionLocal as AsyncSessionLocal
 from app.services.user_service import UserProfileService
 
 logging.basicConfig(level=logging.INFO)

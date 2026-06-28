@@ -1,0 +1,12 @@
+fastapi
+uvicorn[standard]
+sqlalchemy
+asyncpg
+psycopg2-binary
+alembic
+pydantic[email]
+pika
+uuid6
+fastapi_jwt_auth2
+pytest_asyncio
+aiosqlite

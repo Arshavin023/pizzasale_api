@@ -1,0 +1,1478 @@
+============================= test session starts ==============================
+platform linux -- Python 3.12.3, pytest-9.1.1, pluggy-1.6.0 -- /home/uche-nnodim/pizzasale_api/pizzasaletests_env/bin/python
+cachedir: .pytest_cache
+rootdir: /home/uche-nnodim/pizzasale_api/user-service
+plugins: anyio-4.14.1, asyncio-1.4.0
+asyncio: mode=Mode.STRICT, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collecting ... collected 30 items
+
+tests/test_consumer.py::TestProcessMessage::test_valid_message_acked PASSED [  3%]
+tests/test_consumer.py::TestProcessMessage::test_duplicate_event_still_acked PASSED [  6%]
+tests/test_consumer.py::TestProcessMessage::test_malformed_json_acked_not_requeued PASSED [ 10%]
+tests/test_consumer.py::TestProcessMessage::test_missing_user_id_acked PASSED [ 13%]
+tests/test_consumer.py::TestProcessMessage::test_missing_email_acked PASSED [ 16%]
+tests/test_consumer.py::TestProcessMessage::test_missing_username_acked PASSED [ 20%]
+tests/test_consumer.py::TestProcessMessage::test_empty_body_acked PASSED [ 23%]
+tests/test_consumer.py::TestProcessMessage::test_db_transient_error_nacked PASSED [ 26%]
+tests/test_consumer.py::TestProcessMessage::test_create_called_with_correct_args PASSED [ 30%]
+tests/test_user_routes.py::TestGetUserProfile::test_get_own_profile_200 FAILED [ 33%]
+tests/test_user_routes.py::TestGetUserProfile::test_get_profile_unauthenticated_401 PASSED [ 36%]
+tests/test_user_routes.py::TestGetUserProfile::test_get_other_users_profile_403 FAILED [ 40%]
+tests/test_user_routes.py::TestGetUserProfile::test_get_nonexistent_profile_404 FAILED [ 43%]
+tests/test_user_routes.py::TestUpdateUserProfile::test_update_full_name_200 FAILED [ 46%]
+tests/test_user_routes.py::TestUpdateUserProfile::test_patch_is_partial_other_fields_unchanged FAILED [ 50%]
+tests/test_user_routes.py::TestUpdateUserProfile::test_update_json_field FAILED [ 53%]
+tests/test_user_routes.py::TestUpdateUserProfile::test_update_other_users_profile_403 FAILED [ 56%]
+tests/test_user_routes.py::TestUpdateUserProfile::test_update_unauthenticated_401 PASSED [ 60%]
+tests/test_user_routes.py::TestUpdateUserProfile::test_update_nonexistent_profile_404 FAILED [ 63%]
+tests/test_user_routes.py::test_health_check PASSED                      [ 66%]
+tests/test_user_service.py::TestCreateProfileFromEvent::test_creates_profile_returns_true PASSED [ 70%]
+tests/test_user_service.py::TestCreateProfileFromEvent::test_profile_fields_stored_correctly PASSED [ 73%]
+tests/test_user_service.py::TestCreateProfileFromEvent::test_duplicate_event_returns_false PASSED [ 76%]
+tests/test_user_service.py::TestCreateProfileFromEvent::test_duplicate_does_not_create_second_row PASSED [ 80%]
+tests/test_user_service.py::TestGetProfile::test_returns_none_for_unknown_user_id PASSED [ 83%]
+tests/test_user_service.py::TestGetProfile::test_returns_profile_for_known_user_id PASSED [ 86%]
+tests/test_user_service.py::TestUpdateProfile::test_full_name_updated PASSED [ 90%]
+tests/test_user_service.py::TestUpdateProfile::test_partial_update_leaves_other_fields_unchanged PASSED [ 93%]
+tests/test_user_service.py::TestUpdateProfile::test_json_fields_stored PASSED [ 96%]
+tests/test_user_service.py::TestUpdateProfile::test_multiple_fields_updated_atomically PASSED [100%]
+
+=================================== FAILURES ===================================
+_________________ TestGetUserProfile.test_get_own_profile_200 __________________
+
+self = <sqlalchemy.engine.base.Connection object at 0x71748a984a40>
+dialect = <sqlalchemy.dialects.sqlite.aiosqlite.SQLiteDialect_aiosqlite object at 0x71748acffd40>
+constructor = <bound method DefaultExecutionContext._init_compiled of <class 'sqlalchemy.dialects.sqlite.aiosqlite.SQLiteExecutionContext_aiosqlite'>>
+statement = <sqlalchemy.dialects.sqlite.base.SQLiteCompiler object at 0x71748af98e00>
+parameters = [{}]
+execution_options = immutabledict({'prebuffer_rows': True, '_result_disable_adapt_to_context': True})
+args = (<sqlalchemy.dialects.sqlite.base.SQLiteCompiler object at 0x71748af98e00>, [{}], <sqlalchemy.sql.selectable.Select ob... 0x71748aa1b710>, [BindParameter('%(124745355382224 user_id)s', 'b712bb07-18c4-4c98-9fa6-0991532d0d34', type_=UUID())])
+kw = {'cache_hit': <CacheStats.CACHE_MISS: 1>}
+
+    def _execute_context(
+        self,
+        dialect: Dialect,
+        constructor: Callable[..., ExecutionContext],
+        statement: Union[str, Compiled],
+        parameters: Optional[_AnyMultiExecuteParams],
+        execution_options: _ExecuteOptions,
+        *args: Any,
+        **kw: Any,
+    ) -> CursorResult[Any]:
+        """Create an :class:`.ExecutionContext` and execute, returning
+        a :class:`_engine.CursorResult`."""
+    
+        if execution_options:
+            yp = execution_options.get("yield_per", None)
+            if yp:
+                execution_options = execution_options.union(
+                    {"stream_results": True, "max_row_buffer": yp}
+                )
+        try:
+            conn = self._dbapi_connection
+            if conn is None:
+                conn = self._revalidate_connection()
+    
+>           context = constructor(
+                dialect, self, conn, execution_options, *args, **kw
+            )
+
+../pizzasaletests_env/lib/python3.12/site-packages/sqlalchemy/engine/base.py:1817: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+../pizzasaletests_env/lib/python3.12/site-packages/sqlalchemy/engine/default.py:1496: in _init_compiled
+    flattened_processors[key](compiled_params[key])
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+value = 'b712bb07-18c4-4c98-9fa6-0991532d0d34'
+
+    def process(value):
+        if value is not None:
+>           value = value.hex
+                    ^^^^^^^^^
+E           AttributeError: 'str' object has no attribute 'hex'
+
+../pizzasaletests_env/lib/python3.12/site-packages/sqlalchemy/sql/sqltypes.py:3734: AttributeError
+
+The above exception was the direct cause of the following exception:
+
+self = <test_user_routes.TestGetUserProfile object at 0x71748ab55730>
+client = <httpx.AsyncClient object at 0x71748a940fb0>
+db = <sqlalchemy.orm.session.AsyncSession object at 0x71748a941e80>
+
+    async def test_get_own_profile_200(self, client, db):
+        uid = await _seed_profile(db, username="uche")
+        from conftest import make_token
+        token = make_token(username="uche")
+    
+>       resp = await client.get(
+            f"{USERS_URL}/{uid}",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+
+tests/test_user_routes.py:36: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+../pizzasaletests_env/lib/python3.12/site-packages/httpx/_client.py:1768: in get
+    return await self.request(
+../pizzasaletests_env/lib/python3.12/site-packages/httpx/_client.py:1540: in request
+    return await self.send(request, auth=auth, follow_redirects=follow_redirects)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../pizzasaletests_env/lib/python3.12/site-packages/httpx/_client.py:1629: in send
+    response = await self._send_handling_auth(
+../pizzasaletests_env/lib/python3.12/site-packages/httpx/_client.py:1657: in _send_handling_auth
+    response = await self._send_handling_redirects(
+../pizzasaletests_env/lib/python3.12/site-packages/httpx/_client.py:1694: in _send_handling_redirects
+    response = await self._send_single_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../pizzasaletests_env/lib/python3.12/site-packages/httpx/_client.py:1730: in _send_single_request
+    response = await transport.handle_async_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../pizzasaletests_env/lib/python3.12/site-packages/httpx/_transports/asgi.py:170: in handle_async_request
+    await self.app(scope, receive, send)
+../pizzasaletests_env/lib/python3.12/site-packages/fastapi/applications.py:1163: in __call__
+    await super().__call__(scope, receive, send)
+../pizzasaletests_env/lib/python3.12/site-packages/starlette/applications.py:90: in __call__
+    await self.middleware_stack(scope, receive, send)
+../pizzasaletests_env/lib/python3.12/site-packages/starlette/middleware/errors.py:186: in __call__
+    raise exc
+../pizzasaletests_env/lib/python3.12/site-packages/starlette/middleware/errors.py:164: in __call__
+    await self.app(scope, receive, _send)
+../pizzasaletests_env/lib/python3.12/site-packages/starlette/middleware/exceptions.py:63: in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+../pizzasaletests_env/lib/python3.12/site-packages/starlette/_exception_handler.py:53: in wrapped_app
+    raise exc
+../pizzasaletests_env/lib/python3.12/site-packages/starlette/_exception_handler.py:42: in wrapped_app
+    await app(scope, receive, sender)
+../pizzasaletests_env/lib/python3.12/site-packages/fastapi/middleware/asyncexitstack.py:18: in __call__
+    await self.app(scope, receive, send)
+../pizzasaletests_env/lib/python3.12/site-packages/starlette/routing.py:660: in __call__
+    await self.middleware_stack(scope, receive, send)
+../pizzasaletests_env/lib/python3.12/site-packages/fastapi/routing.py:2531: in app
+    await route.handle(scope, receive, send)
+../pizzasaletests_env/lib/python3.12/site-packages/fastapi/routing.py:1700: in handle
+    await self.original_router.handle(scope, receive, send)
+../pizzasaletests_env/lib/python3.12/site-packages/fastapi/routing.py:2586: in handle
+    await included_router._handle_selected(scope, receive, send)
+../pizzasaletests_env/lib/python3.12/site-packages/fastapi/routing.py:1720: in _handle_selected
+    await original_route.handle(scope, receive, send)
+../pizzasaletests_env/lib/python3.12/site-packages/fastapi/routing.py:1239: in handle
+    await app(scope, receive, send)
+../pizzasaletests_env/lib/python3.12/site-packages/fastapi/routing.py:150: in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+../pizzasaletests_env/lib/python3.12/site-packages/starlette/_exception_handler.py:53: in wrapped_app
+    raise exc
+../pizzasaletests_env/lib/python3.12/site-packages/starlette/_exception_handler.py:42: in wrapped_app
+    await app(scope, receive, sender)
+../pizzasaletests_env/lib/python3.12/site-packages/fastapi/routing.py:136: in app
+    response = await f(request)
+               ^^^^^^^^^^^^^^^^
+../pizzasaletests_env/lib/python3.12/site-packages/fastapi/routing.py:690: in app
+    raw_response = await run_endpoint_function(
+../pizzasaletests_env/lib/python3.12/site-packages/fastapi/routing.py:344: in run_endpoint_function
+    return await dependant.call(**values)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/api/user_routes.py:33: in get_user_profile
+    profile = await UserProfileService.get_profile_by_user_id(db, user_id)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/services/user_service.py:14: in get_profile_by_user_id
+    result = await db.execute(
+../pizzasaletests_env/lib/python3.12/site-packages/sqlalchemy/ext/asyncio/session.py:448: in execute
+    result = await greenlet_spawn(
+../pizzasaletests_env/lib/python3.12/site-packages/sqlalchemy/util/_concurrency_py3k.py:190: in greenlet_spawn
+    result = context.switch(*args, **kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../pizzasaletests_env/lib/python3.12/site-packages/sqlalchemy/orm/session.py:2373: in execute
+    return self._execute_internal(
+../pizzasaletests_env/lib/python3.12/site-packages/sqlalchemy/orm/session.py:2271: in _execute_internal
+    result: Result[Any] = compile_state_cls.orm_execute_statement(
+../pizzasaletests_env/lib/python3.12/site-packages/sqlalchemy/orm/context.py:306: in orm_execute_statement
+    result = conn.execute(
+../pizzasaletests_env/lib/python3.12/site-packages/sqlalchemy/engine/base.py:1421: in execute
+    return meth(
+../pizzasaletests_env/lib/python3.12/site-packages/sqlalchemy/sql/elements.py:526: in _execute_on_connection
+    return connection._execute_clauseelement(
+../pizzasaletests_env/lib/python3.12/site-packages/sqlalchemy/engine/base.py:1643: in _execute_clauseelement
+    ret = self._execute_context(
+../pizzasaletests_env/lib/python3.12/site-packages/sqlalchemy/engine/base.py:1823: in _execute_context
+    self._handle_dbapi_exception(
+../pizzasaletests_env/lib/python3.12/site-packages/sqlalchemy/engine/base.py:2365: in _handle_dbapi_exception
+    raise sqlalchemy_exception.with_traceback(exc_info[2]) from e
+../pizzasaletests_env/lib/python3.12/site-packages/sqlalchemy/engine/base.py:1817: in _execute_context
+    context = constructor(
+../pizzasaletests_env/lib/python3.12/site-packages/sqlalchemy/engine/default.py:1496: in _init_compiled
+    flattened_processors[key](compiled_params[key])
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+value = 'b712bb07-18c4-4c98-9fa6-0991532d0d34'
+
+    def process(value):
+        if value is not None:
+>           value = value.hex
+                    ^^^^^^^^^
+E           sqlalchemy.exc.StatementError: (builtins.AttributeError) 'str' object has no attribute 'hex'
+E           [SQL: SELECT user_profiles.id, user_profiles.user_id, user_profiles.email, user_profiles.username, user_profiles.full_name, user_profiles.phone, user_profiles.delivery_address, user_profiles.dietary_preferences, user_profiles.favorite_order, user_profiles.notification_settings, user_profiles.created_at, user_profiles.updated_at 
+E           FROM user_profiles 
+E           WHERE user_profiles.user_id = ?]
+E           [parameters: [{}]]
+
+../pizzasaletests_env/lib/python3.12/site-packages/sqlalchemy/sql/sqltypes.py:3734: StatementError
+_____________ TestGetUserProfile.test_get_other_users_profile_403 ______________
+
+self = <sqlalchemy.engine.base.Connection object at 0x71748a92a1e0>
+dialect = <sqlalchemy.dialects.sqlite.aiosqlite.SQLiteDialect_aiosqlite object at 0x71748acffd40>
+constructor = <bound method DefaultExecutionContext._init_compiled of <class 'sqlalchemy.dialects.sqlite.aiosqlite.SQLiteExecutionContext_aiosqlite'>>
+statement = <sqlalchemy.dialects.sqlite.base.SQLiteCompiler object at 0x71748af98e00>
+parameters = [{}]
+execution_options = immutabledict({'prebuffer_rows': True, '_result_disable_adapt_to_context': True})
+args = (<sqlalchemy.dialects.sqlite.base.SQLiteCompiler object at 0x71748af98e00>, [{}], <sqlalchemy.sql.selectable.Select ob... 0x71748a92a0c0>, [BindParameter('%(124745355010144 user_id)s', '28ba19f7-b323-4cd4-8800-ae2b3756ba1c', type_=UUID())])
+kw = {'cache_hit': <CacheStats.CACHE_HIT: 0>}
+
+    def _execute_context(
+        self,
+        dialect: Dialect,
+        constructor: Callable[..., ExecutionContext],
+        statement: Union[str, Compiled],
+        parameters: Optional[_AnyMultiExecuteParams],
+        execution_options: _ExecuteOptions,
+        *args: Any,
+        **kw: Any,
+    ) -> CursorResult[Any]:
+        """Create an :class:`.ExecutionContext` and execute, returning
+        a :class:`_engine.CursorResult`."""
+    
+        if execution_options:
+            yp = execution_options.get("yield_per", None)
+            if yp:
+                execution_options = execution_options.union(
+                    {"stream_results": True, "max_row_buffer": yp}
+                )
+        try:
+            conn = self._dbapi_connection
+            if conn is None:
+                conn = self._revalidate_connection()
+    
+>           context = constructor(
+                dialect, self, conn, execution_options, *args, **kw
+            )
+
+../pizzasaletests_env/lib/python3.12/site-packages/sqlalchemy/engine/base.py:1817: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+../pizzasaletests_env/lib/python3.12/site-packages/sqlalchemy/engine/default.py:1496: in _init_compiled
+    flattened_processors[key](compiled_params[key])
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+value = '28ba19f7-b323-4cd4-8800-ae2b3756ba1c'
+
+    def process(value):
+        if value is not None:
+>           value = value.hex
+                    ^^^^^^^^^
+E           AttributeError: 'str' object has no attribute 'hex'
+
+../pizzasaletests_env/lib/python3.12/site-packages/sqlalchemy/sql/sqltypes.py:3734: AttributeError
+
+The above exception was the direct cause of the following exception:
+
+self = <test_user_routes.TestGetUserProfile object at 0x71748ab546e0>
+client = <httpx.AsyncClient object at 0x71748a938800>
+db = <sqlalchemy.orm.session.AsyncSession object at 0x71748a92b620>
+
+    async def test_get_other_users_profile_403(self, client, db):
+        uid = await _seed_profile(db, username="victim")
+        from conftest import make_token
+        token = make_token(username="attacker")
+    
+>       resp = await client.get(
+            f"{USERS_URL}/{uid}",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+
+tests/test_user_routes.py:55: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+../pizzasaletests_env/lib/python3.12/site-packages/httpx/_client.py:1768: in get
+    return await self.request(
+../pizzasaletests_env/lib/python3.12/site-packages/httpx/_client.py:1540: in request
+    return await self.send(request, auth=auth, follow_redirects=follow_redirects)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../pizzasaletests_env/lib/python3.12/site-packages/httpx/_client.py:1629: in send
+    response = await self._send_handling_auth(
+../pizzasaletests_env/lib/python3.12/site-packages/httpx/_client.py:1657: in _send_handling_auth
+    response = await self._send_handling_redirects(
+../pizzasaletests_env/lib/python3.12/site-packages/httpx/_client.py:1694: in _send_handling_redirects
+    response = await self._send_single_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../pizzasaletests_env/lib/python3.12/site-packages/httpx/_client.py:1730: in _send_single_request
+    response = await transport.handle_async_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../pizzasaletests_env/lib/python3.12/site-packages/httpx/_transports/asgi.py:170: in handle_async_request
+    await self.app(scope, receive, send)
+../pizzasaletests_env/lib/python3.12/site-packages/fastapi/applications.py:1163: in __call__
+    await super().__call__(scope, receive, send)
+../pizzasaletests_env/lib/python3.12/site-packages/starlette/applications.py:90: in __call__
+    await self.middleware_stack(scope, receive, send)
+../pizzasaletests_env/lib/python3.12/site-packages/starlette/middleware/errors.py:186: in __call__
+    raise exc
+../pizzasaletests_env/lib/python3.12/site-packages/starlette/middleware/errors.py:164: in __call__
+    await self.app(scope, receive, _send)
+../pizzasaletests_env/lib/python3.12/site-packages/starlette/middleware/exceptions.py:63: in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+../pizzasaletests_env/lib/python3.12/site-packages/starlette/_exception_handler.py:53: in wrapped_app
+    raise exc
+../pizzasaletests_env/lib/python3.12/site-packages/starlette/_exception_handler.py:42: in wrapped_app
+    await app(scope, receive, sender)
+../pizzasaletests_env/lib/python3.12/site-packages/fastapi/middleware/asyncexitstack.py:18: in __call__
+    await self.app(scope, receive, send)
+../pizzasaletests_env/lib/python3.12/site-packages/starlette/routing.py:660: in __call__
+    await self.middleware_stack(scope, receive, send)
+../pizzasaletests_env/lib/python3.12/site-packages/fastapi/routing.py:2531: in app
+    await route.handle(scope, receive, send)
+../pizzasaletests_env/lib/python3.12/site-packages/fastapi/routing.py:1700: in handle
+    await self.original_router.handle(scope, receive, send)
+../pizzasaletests_env/lib/python3.12/site-packages/fastapi/routing.py:2586: in handle
+    await included_router._handle_selected(scope, receive, send)
+../pizzasaletests_env/lib/python3.12/site-packages/fastapi/routing.py:1720: in _handle_selected
+    await original_route.handle(scope, receive, send)
+../pizzasaletests_env/lib/python3.12/site-packages/fastapi/routing.py:1239: in handle
+    await app(scope, receive, send)
+../pizzasaletests_env/lib/python3.12/site-packages/fastapi/routing.py:150: in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+../pizzasaletests_env/lib/python3.12/site-packages/starlette/_exception_handler.py:53: in wrapped_app
+    raise exc
+../pizzasaletests_env/lib/python3.12/site-packages/starlette/_exception_handler.py:42: in wrapped_app
+    await app(scope, receive, sender)
+../pizzasaletests_env/lib/python3.12/site-packages/fastapi/routing.py:136: in app
+    response = await f(request)
+               ^^^^^^^^^^^^^^^^
+../pizzasaletests_env/lib/python3.12/site-packages/fastapi/routing.py:690: in app
+    raw_response = await run_endpoint_function(
+../pizzasaletests_env/lib/python3.12/site-packages/fastapi/routing.py:344: in run_endpoint_function
+    return await dependant.call(**values)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/api/user_routes.py:33: in get_user_profile
+    profile = await UserProfileService.get_profile_by_user_id(db, user_id)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/services/user_service.py:14: in get_profile_by_user_id
+    result = await db.execute(
+../pizzasaletests_env/lib/python3.12/site-packages/sqlalchemy/ext/asyncio/session.py:448: in execute
+    result = await greenlet_spawn(
+../pizzasaletests_env/lib/python3.12/site-packages/sqlalchemy/util/_concurrency_py3k.py:190: in greenlet_spawn
+    result = context.switch(*args, **kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../pizzasaletests_env/lib/python3.12/site-packages/sqlalchemy/orm/session.py:2373: in execute
+    return self._execute_internal(
+../pizzasaletests_env/lib/python3.12/site-packages/sqlalchemy/orm/session.py:2271: in _execute_internal
+    result: Result[Any] = compile_state_cls.orm_execute_statement(
+../pizzasaletests_env/lib/python3.12/site-packages/sqlalchemy/orm/context.py:306: in orm_execute_statement
+    result = conn.execute(
+../pizzasaletests_env/lib/python3.12/site-packages/sqlalchemy/engine/base.py:1421: in execute
+    return meth(
+../pizzasaletests_env/lib/python3.12/site-packages/sqlalchemy/sql/elements.py:526: in _execute_on_connection
+    return connection._execute_clauseelement(
+../pizzasaletests_env/lib/python3.12/site-packages/sqlalchemy/engine/base.py:1643: in _execute_clauseelement
+    ret = self._execute_context(
+../pizzasaletests_env/lib/python3.12/site-packages/sqlalchemy/engine/base.py:1823: in _execute_context
+    self._handle_dbapi_exception(
+../pizzasaletests_env/lib/python3.12/site-packages/sqlalchemy/engine/base.py:2365: in _handle_dbapi_exception
+    raise sqlalchemy_exception.with_traceback(exc_info[2]) from e
+../pizzasaletests_env/lib/python3.12/site-packages/sqlalchemy/engine/base.py:1817: in _execute_context
+    context = constructor(
+../pizzasaletests_env/lib/python3.12/site-packages/sqlalchemy/engine/default.py:1496: in _init_compiled
+    flattened_processors[key](compiled_params[key])
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+value = '28ba19f7-b323-4cd4-8800-ae2b3756ba1c'
+
+    def process(value):
+        if value is not None:
+>           value = value.hex
+                    ^^^^^^^^^
+E           sqlalchemy.exc.StatementError: (builtins.AttributeError) 'str' object has no attribute 'hex'
+E           [SQL: SELECT user_profiles.id, user_profiles.user_id, user_profiles.email, user_profiles.username, user_profiles.full_name, user_profiles.phone, user_profiles.delivery_address, user_profiles.dietary_preferences, user_profiles.favorite_order, user_profiles.notification_settings, user_profiles.created_at, user_profiles.updated_at 
+E           FROM user_profiles 
+E           WHERE user_profiles.user_id = ?]
+E           [parameters: [{}]]
+
+../pizzasaletests_env/lib/python3.12/site-packages/sqlalchemy/sql/sqltypes.py:3734: StatementError
+_____________ TestGetUserProfile.test_get_nonexistent_profile_404 ______________
+
+self = <sqlalchemy.engine.base.Connection object at 0x71748a923d10>
+dialect = <sqlalchemy.dialects.sqlite.aiosqlite.SQLiteDialect_aiosqlite object at 0x71748acffd40>
+constructor = <bound method DefaultExecutionContext._init_compiled of <class 'sqlalchemy.dialects.sqlite.aiosqlite.SQLiteExecutionContext_aiosqlite'>>
+statement = <sqlalchemy.dialects.sqlite.base.SQLiteCompiler object at 0x71748af98e00>
+parameters = [{}]
+execution_options = immutabledict({'prebuffer_rows': True, '_result_disable_adapt_to_context': True})
+args = (<sqlalchemy.dialects.sqlite.base.SQLiteCompiler object at 0x71748af98e00>, [{}], <sqlalchemy.sql.selectable.Select ob... 0x71748a922990>, [BindParameter('%(124745354979632 user_id)s', 'b875090c-9191-400a-bf0f-aaca7e0dd5f0', type_=UUID())])
+kw = {'cache_hit': <CacheStats.CACHE_HIT: 0>}
+
+    def _execute_context(
+        self,
+        dialect: Dialect,
+        constructor: Callable[..., ExecutionContext],
+        statement: Union[str, Compiled],
+        parameters: Optional[_AnyMultiExecuteParams],
+        execution_options: _ExecuteOptions,
+        *args: Any,
+        **kw: Any,
+    ) -> CursorResult[Any]:
+        """Create an :class:`.ExecutionContext` and execute, returning
+        a :class:`_engine.CursorResult`."""
+    
+        if execution_options:
+            yp = execution_options.get("yield_per", None)
+            if yp:
+                execution_options = execution_options.union(
+                    {"stream_results": True, "max_row_buffer": yp}
+                )
+        try:
+            conn = self._dbapi_connection
+            if conn is None:
+                conn = self._revalidate_connection()
+    
+>           context = constructor(
+                dialect, self, conn, execution_options, *args, **kw
+            )
+
+../pizzasaletests_env/lib/python3.12/site-packages/sqlalchemy/engine/base.py:1817: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+../pizzasaletests_env/lib/python3.12/site-packages/sqlalchemy/engine/default.py:1496: in _init_compiled
+    flattened_processors[key](compiled_params[key])
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+value = 'b875090c-9191-400a-bf0f-aaca7e0dd5f0'
+
+    def process(value):
+        if value is not None:
+>           value = value.hex
+                    ^^^^^^^^^
+E           AttributeError: 'str' object has no attribute 'hex'
+
+../pizzasaletests_env/lib/python3.12/site-packages/sqlalchemy/sql/sqltypes.py:3734: AttributeError
+
+The above exception was the direct cause of the following exception:
+
+self = <test_user_routes.TestGetUserProfile object at 0x71748ab56900>
+client = <httpx.AsyncClient object at 0x71748a928920>
+db = <sqlalchemy.orm.session.AsyncSession object at 0x71748a9232f0>
+
+    async def test_get_nonexistent_profile_404(self, client, db):
+        from conftest import make_token
+        token = make_token(username="uche")
+>       resp = await client.get(
+            f"{USERS_URL}/{_uuid()}",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+
+tests/test_user_routes.py:64: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+../pizzasaletests_env/lib/python3.12/site-packages/httpx/_client.py:1768: in get
+    return await self.request(
+../pizzasaletests_env/lib/python3.12/site-packages/httpx/_client.py:1540: in request
+    return await self.send(request, auth=auth, follow_redirects=follow_redirects)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../pizzasaletests_env/lib/python3.12/site-packages/httpx/_client.py:1629: in send
+    response = await self._send_handling_auth(
+../pizzasaletests_env/lib/python3.12/site-packages/httpx/_client.py:1657: in _send_handling_auth
+    response = await self._send_handling_redirects(
+../pizzasaletests_env/lib/python3.12/site-packages/httpx/_client.py:1694: in _send_handling_redirects
+    response = await self._send_single_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../pizzasaletests_env/lib/python3.12/site-packages/httpx/_client.py:1730: in _send_single_request
+    response = await transport.handle_async_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../pizzasaletests_env/lib/python3.12/site-packages/httpx/_transports/asgi.py:170: in handle_async_request
+    await self.app(scope, receive, send)
+../pizzasaletests_env/lib/python3.12/site-packages/fastapi/applications.py:1163: in __call__
+    await super().__call__(scope, receive, send)
+../pizzasaletests_env/lib/python3.12/site-packages/starlette/applications.py:90: in __call__
+    await self.middleware_stack(scope, receive, send)
+../pizzasaletests_env/lib/python3.12/site-packages/starlette/middleware/errors.py:186: in __call__
+    raise exc
+../pizzasaletests_env/lib/python3.12/site-packages/starlette/middleware/errors.py:164: in __call__
+    await self.app(scope, receive, _send)
+../pizzasaletests_env/lib/python3.12/site-packages/starlette/middleware/exceptions.py:63: in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+../pizzasaletests_env/lib/python3.12/site-packages/starlette/_exception_handler.py:53: in wrapped_app
+    raise exc
+../pizzasaletests_env/lib/python3.12/site-packages/starlette/_exception_handler.py:42: in wrapped_app
+    await app(scope, receive, sender)
+../pizzasaletests_env/lib/python3.12/site-packages/fastapi/middleware/asyncexitstack.py:18: in __call__
+    await self.app(scope, receive, send)
+../pizzasaletests_env/lib/python3.12/site-packages/starlette/routing.py:660: in __call__
+    await self.middleware_stack(scope, receive, send)
+../pizzasaletests_env/lib/python3.12/site-packages/fastapi/routing.py:2531: in app
+    await route.handle(scope, receive, send)
+../pizzasaletests_env/lib/python3.12/site-packages/fastapi/routing.py:1700: in handle
+    await self.original_router.handle(scope, receive, send)
+../pizzasaletests_env/lib/python3.12/site-packages/fastapi/routing.py:2586: in handle
+    await included_router._handle_selected(scope, receive, send)
+../pizzasaletests_env/lib/python3.12/site-packages/fastapi/routing.py:1720: in _handle_selected
+    await original_route.handle(scope, receive, send)
+../pizzasaletests_env/lib/python3.12/site-packages/fastapi/routing.py:1239: in handle
+    await app(scope, receive, send)
+../pizzasaletests_env/lib/python3.12/site-packages/fastapi/routing.py:150: in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+../pizzasaletests_env/lib/python3.12/site-packages/starlette/_exception_handler.py:53: in wrapped_app
+    raise exc
+../pizzasaletests_env/lib/python3.12/site-packages/starlette/_exception_handler.py:42: in wrapped_app
+    await app(scope, receive, sender)
+../pizzasaletests_env/lib/python3.12/site-packages/fastapi/routing.py:136: in app
+    response = await f(request)
+               ^^^^^^^^^^^^^^^^
+../pizzasaletests_env/lib/python3.12/site-packages/fastapi/routing.py:690: in app
+    raw_response = await run_endpoint_function(
+../pizzasaletests_env/lib/python3.12/site-packages/fastapi/routing.py:344: in run_endpoint_function
+    return await dependant.call(**values)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/api/user_routes.py:33: in get_user_profile
+    profile = await UserProfileService.get_profile_by_user_id(db, user_id)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/services/user_service.py:14: in get_profile_by_user_id
+    result = await db.execute(
+../pizzasaletests_env/lib/python3.12/site-packages/sqlalchemy/ext/asyncio/session.py:448: in execute
+    result = await greenlet_spawn(
+../pizzasaletests_env/lib/python3.12/site-packages/sqlalchemy/util/_concurrency_py3k.py:190: in greenlet_spawn
+    result = context.switch(*args, **kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../pizzasaletests_env/lib/python3.12/site-packages/sqlalchemy/orm/session.py:2373: in execute
+    return self._execute_internal(
+../pizzasaletests_env/lib/python3.12/site-packages/sqlalchemy/orm/session.py:2271: in _execute_internal
+    result: Result[Any] = compile_state_cls.orm_execute_statement(
+../pizzasaletests_env/lib/python3.12/site-packages/sqlalchemy/orm/context.py:306: in orm_execute_statement
+    result = conn.execute(
+../pizzasaletests_env/lib/python3.12/site-packages/sqlalchemy/engine/base.py:1421: in execute
+    return meth(
+../pizzasaletests_env/lib/python3.12/site-packages/sqlalchemy/sql/elements.py:526: in _execute_on_connection
+    return connection._execute_clauseelement(
+../pizzasaletests_env/lib/python3.12/site-packages/sqlalchemy/engine/base.py:1643: in _execute_clauseelement
+    ret = self._execute_context(
+../pizzasaletests_env/lib/python3.12/site-packages/sqlalchemy/engine/base.py:1823: in _execute_context
+    self._handle_dbapi_exception(
+../pizzasaletests_env/lib/python3.12/site-packages/sqlalchemy/engine/base.py:2365: in _handle_dbapi_exception
+    raise sqlalchemy_exception.with_traceback(exc_info[2]) from e
+../pizzasaletests_env/lib/python3.12/site-packages/sqlalchemy/engine/base.py:1817: in _execute_context
+    context = constructor(
+../pizzasaletests_env/lib/python3.12/site-packages/sqlalchemy/engine/default.py:1496: in _init_compiled
+    flattened_processors[key](compiled_params[key])
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+value = 'b875090c-9191-400a-bf0f-aaca7e0dd5f0'
+
+    def process(value):
+        if value is not None:
+>           value = value.hex
+                    ^^^^^^^^^
+E           sqlalchemy.exc.StatementError: (builtins.AttributeError) 'str' object has no attribute 'hex'
+E           [SQL: SELECT user_profiles.id, user_profiles.user_id, user_profiles.email, user_profiles.username, user_profiles.full_name, user_profiles.phone, user_profiles.delivery_address, user_profiles.dietary_preferences, user_profiles.favorite_order, user_profiles.notification_settings, user_profiles.created_at, user_profiles.updated_at 
+E           FROM user_profiles 
+E           WHERE user_profiles.user_id = ?]
+E           [parameters: [{}]]
+
+../pizzasaletests_env/lib/python3.12/site-packages/sqlalchemy/sql/sqltypes.py:3734: StatementError
+_______________ TestUpdateUserProfile.test_update_full_name_200 ________________
+
+self = <sqlalchemy.engine.base.Connection object at 0x71748a918170>
+dialect = <sqlalchemy.dialects.sqlite.aiosqlite.SQLiteDialect_aiosqlite object at 0x71748acffd40>
+constructor = <bound method DefaultExecutionContext._init_compiled of <class 'sqlalchemy.dialects.sqlite.aiosqlite.SQLiteExecutionContext_aiosqlite'>>
+statement = <sqlalchemy.dialects.sqlite.base.SQLiteCompiler object at 0x71748af98e00>
+parameters = [{}]
+execution_options = immutabledict({'prebuffer_rows': True, '_result_disable_adapt_to_context': True})
+args = (<sqlalchemy.dialects.sqlite.base.SQLiteCompiler object at 0x71748af98e00>, [{}], <sqlalchemy.sql.selectable.Select ob... 0x71748a91b470>, [BindParameter('%(124745354952576 user_id)s', '025f5f0f-994f-43df-85ee-4e6e0f687e05', type_=UUID())])
+kw = {'cache_hit': <CacheStats.CACHE_HIT: 0>}
+
+    def _execute_context(
+        self,
+        dialect: Dialect,
+        constructor: Callable[..., ExecutionContext],
+        statement: Union[str, Compiled],
+        parameters: Optional[_AnyMultiExecuteParams],
+        execution_options: _ExecuteOptions,
+        *args: Any,
+        **kw: Any,
+    ) -> CursorResult[Any]:
+        """Create an :class:`.ExecutionContext` and execute, returning
+        a :class:`_engine.CursorResult`."""
+    
+        if execution_options:
+            yp = execution_options.get("yield_per", None)
+            if yp:
+                execution_options = execution_options.union(
+                    {"stream_results": True, "max_row_buffer": yp}
+                )
+        try:
+            conn = self._dbapi_connection
+            if conn is None:
+                conn = self._revalidate_connection()
+    
+>           context = constructor(
+                dialect, self, conn, execution_options, *args, **kw
+            )
+
+../pizzasaletests_env/lib/python3.12/site-packages/sqlalchemy/engine/base.py:1817: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+../pizzasaletests_env/lib/python3.12/site-packages/sqlalchemy/engine/default.py:1496: in _init_compiled
+    flattened_processors[key](compiled_params[key])
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+value = '025f5f0f-994f-43df-85ee-4e6e0f687e05'
+
+    def process(value):
+        if value is not None:
+>           value = value.hex
+                    ^^^^^^^^^
+E           AttributeError: 'str' object has no attribute 'hex'
+
+../pizzasaletests_env/lib/python3.12/site-packages/sqlalchemy/sql/sqltypes.py:3734: AttributeError
+
+The above exception was the direct cause of the following exception:
+
+self = <test_user_routes.TestUpdateUserProfile object at 0x71748ab56cf0>
+client = <httpx.AsyncClient object at 0x71748a9188c0>
+db = <sqlalchemy.orm.session.AsyncSession object at 0x71748a918920>
+
+    async def test_update_full_name_200(self, client, db):
+        uid = await _seed_profile(db, username="uche")
+        from conftest import make_token
+        token = make_token(username="uche")
+    
+>       resp = await client.patch(
+            f"{USERS_URL}/{uid}",
+            json={"full_name": "Uche Nnodim"},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+
+tests/test_user_routes.py:81: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+../pizzasaletests_env/lib/python3.12/site-packages/httpx/_client.py:1933: in patch
+    return await self.request(
+../pizzasaletests_env/lib/python3.12/site-packages/httpx/_client.py:1540: in request
+    return await self.send(request, auth=auth, follow_redirects=follow_redirects)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../pizzasaletests_env/lib/python3.12/site-packages/httpx/_client.py:1629: in send
+    response = await self._send_handling_auth(
+../pizzasaletests_env/lib/python3.12/site-packages/httpx/_client.py:1657: in _send_handling_auth
+    response = await self._send_handling_redirects(
+../pizzasaletests_env/lib/python3.12/site-packages/httpx/_client.py:1694: in _send_handling_redirects
+    response = await self._send_single_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../pizzasaletests_env/lib/python3.12/site-packages/httpx/_client.py:1730: in _send_single_request
+    response = await transport.handle_async_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../pizzasaletests_env/lib/python3.12/site-packages/httpx/_transports/asgi.py:170: in handle_async_request
+    await self.app(scope, receive, send)
+../pizzasaletests_env/lib/python3.12/site-packages/fastapi/applications.py:1163: in __call__
+    await super().__call__(scope, receive, send)
+../pizzasaletests_env/lib/python3.12/site-packages/starlette/applications.py:90: in __call__
+    await self.middleware_stack(scope, receive, send)
+../pizzasaletests_env/lib/python3.12/site-packages/starlette/middleware/errors.py:186: in __call__
+    raise exc
+../pizzasaletests_env/lib/python3.12/site-packages/starlette/middleware/errors.py:164: in __call__
+    await self.app(scope, receive, _send)
+../pizzasaletests_env/lib/python3.12/site-packages/starlette/middleware/exceptions.py:63: in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+../pizzasaletests_env/lib/python3.12/site-packages/starlette/_exception_handler.py:53: in wrapped_app
+    raise exc
+../pizzasaletests_env/lib/python3.12/site-packages/starlette/_exception_handler.py:42: in wrapped_app
+    await app(scope, receive, sender)
+../pizzasaletests_env/lib/python3.12/site-packages/fastapi/middleware/asyncexitstack.py:18: in __call__
+    await self.app(scope, receive, send)
+../pizzasaletests_env/lib/python3.12/site-packages/starlette/routing.py:660: in __call__
+    await self.middleware_stack(scope, receive, send)
+../pizzasaletests_env/lib/python3.12/site-packages/fastapi/routing.py:2531: in app
+    await route.handle(scope, receive, send)
+../pizzasaletests_env/lib/python3.12/site-packages/fastapi/routing.py:1700: in handle
+    await self.original_router.handle(scope, receive, send)
+../pizzasaletests_env/lib/python3.12/site-packages/fastapi/routing.py:2586: in handle
+    await included_router._handle_selected(scope, receive, send)
+../pizzasaletests_env/lib/python3.12/site-packages/fastapi/routing.py:1720: in _handle_selected
+    await original_route.handle(scope, receive, send)
+../pizzasaletests_env/lib/python3.12/site-packages/fastapi/routing.py:1239: in handle
+    await app(scope, receive, send)
+../pizzasaletests_env/lib/python3.12/site-packages/fastapi/routing.py:150: in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+../pizzasaletests_env/lib/python3.12/site-packages/starlette/_exception_handler.py:53: in wrapped_app
+    raise exc
+../pizzasaletests_env/lib/python3.12/site-packages/starlette/_exception_handler.py:42: in wrapped_app
+    await app(scope, receive, sender)
+../pizzasaletests_env/lib/python3.12/site-packages/fastapi/routing.py:136: in app
+    response = await f(request)
+               ^^^^^^^^^^^^^^^^
+../pizzasaletests_env/lib/python3.12/site-packages/fastapi/routing.py:690: in app
+    raw_response = await run_endpoint_function(
+../pizzasaletests_env/lib/python3.12/site-packages/fastapi/routing.py:344: in run_endpoint_function
+    return await dependant.call(**values)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/api/user_routes.py:52: in update_user_profile
+    profile = await UserProfileService.get_profile_by_user_id(db, user_id)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/services/user_service.py:14: in get_profile_by_user_id
+    result = await db.execute(
+../pizzasaletests_env/lib/python3.12/site-packages/sqlalchemy/ext/asyncio/session.py:448: in execute
+    result = await greenlet_spawn(
+../pizzasaletests_env/lib/python3.12/site-packages/sqlalchemy/util/_concurrency_py3k.py:190: in greenlet_spawn
+    result = context.switch(*args, **kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../pizzasaletests_env/lib/python3.12/site-packages/sqlalchemy/orm/session.py:2373: in execute
+    return self._execute_internal(
+../pizzasaletests_env/lib/python3.12/site-packages/sqlalchemy/orm/session.py:2271: in _execute_internal
+    result: Result[Any] = compile_state_cls.orm_execute_statement(
+../pizzasaletests_env/lib/python3.12/site-packages/sqlalchemy/orm/context.py:306: in orm_execute_statement
+    result = conn.execute(
+../pizzasaletests_env/lib/python3.12/site-packages/sqlalchemy/engine/base.py:1421: in execute
+    return meth(
+../pizzasaletests_env/lib/python3.12/site-packages/sqlalchemy/sql/elements.py:526: in _execute_on_connection
+    return connection._execute_clauseelement(
+../pizzasaletests_env/lib/python3.12/site-packages/sqlalchemy/engine/base.py:1643: in _execute_clauseelement
+    ret = self._execute_context(
+../pizzasaletests_env/lib/python3.12/site-packages/sqlalchemy/engine/base.py:1823: in _execute_context
+    self._handle_dbapi_exception(
+../pizzasaletests_env/lib/python3.12/site-packages/sqlalchemy/engine/base.py:2365: in _handle_dbapi_exception
+    raise sqlalchemy_exception.with_traceback(exc_info[2]) from e
+../pizzasaletests_env/lib/python3.12/site-packages/sqlalchemy/engine/base.py:1817: in _execute_context
+    context = constructor(
+../pizzasaletests_env/lib/python3.12/site-packages/sqlalchemy/engine/default.py:1496: in _init_compiled
+    flattened_processors[key](compiled_params[key])
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+value = '025f5f0f-994f-43df-85ee-4e6e0f687e05'
+
+    def process(value):
+        if value is not None:
+>           value = value.hex
+                    ^^^^^^^^^
+E           sqlalchemy.exc.StatementError: (builtins.AttributeError) 'str' object has no attribute 'hex'
+E           [SQL: SELECT user_profiles.id, user_profiles.user_id, user_profiles.email, user_profiles.username, user_profiles.full_name, user_profiles.phone, user_profiles.delivery_address, user_profiles.dietary_preferences, user_profiles.favorite_order, user_profiles.notification_settings, user_profiles.created_at, user_profiles.updated_at 
+E           FROM user_profiles 
+E           WHERE user_profiles.user_id = ?]
+E           [parameters: [{}]]
+
+../pizzasaletests_env/lib/python3.12/site-packages/sqlalchemy/sql/sqltypes.py:3734: StatementError
+______ TestUpdateUserProfile.test_patch_is_partial_other_fields_unchanged ______
+
+self = <sqlalchemy.engine.base.Connection object at 0x71748a987980>
+dialect = <sqlalchemy.dialects.sqlite.aiosqlite.SQLiteDialect_aiosqlite object at 0x71748acffd40>
+constructor = <bound method DefaultExecutionContext._init_compiled of <class 'sqlalchemy.dialects.sqlite.aiosqlite.SQLiteExecutionContext_aiosqlite'>>
+statement = <sqlalchemy.dialects.sqlite.base.SQLiteCompiler object at 0x71748af98e00>
+parameters = [{}]
+execution_options = immutabledict({'prebuffer_rows': True, '_result_disable_adapt_to_context': True})
+args = (<sqlalchemy.dialects.sqlite.base.SQLiteCompiler object at 0x71748af98e00>, [{}], <sqlalchemy.sql.selectable.Select ob... 0x71748a987bf0>, [BindParameter('%(124745355394128 user_id)s', 'c302ce33-2aba-485b-a7f9-9f2bdd1aa28f', type_=UUID())])
+kw = {'cache_hit': <CacheStats.CACHE_HIT: 0>}
+
+    def _execute_context(
+        self,
+        dialect: Dialect,
+        constructor: Callable[..., ExecutionContext],
+        statement: Union[str, Compiled],
+        parameters: Optional[_AnyMultiExecuteParams],
+        execution_options: _ExecuteOptions,
+        *args: Any,
+        **kw: Any,
+    ) -> CursorResult[Any]:
+        """Create an :class:`.ExecutionContext` and execute, returning
+        a :class:`_engine.CursorResult`."""
+    
+        if execution_options:
+            yp = execution_options.get("yield_per", None)
+            if yp:
+                execution_options = execution_options.union(
+                    {"stream_results": True, "max_row_buffer": yp}
+                )
+        try:
+            conn = self._dbapi_connection
+            if conn is None:
+                conn = self._revalidate_connection()
+    
+>           context = constructor(
+                dialect, self, conn, execution_options, *args, **kw
+            )
+
+../pizzasaletests_env/lib/python3.12/site-packages/sqlalchemy/engine/base.py:1817: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+../pizzasaletests_env/lib/python3.12/site-packages/sqlalchemy/engine/default.py:1496: in _init_compiled
+    flattened_processors[key](compiled_params[key])
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+value = 'c302ce33-2aba-485b-a7f9-9f2bdd1aa28f'
+
+    def process(value):
+        if value is not None:
+>           value = value.hex
+                    ^^^^^^^^^
+E           AttributeError: 'str' object has no attribute 'hex'
+
+../pizzasaletests_env/lib/python3.12/site-packages/sqlalchemy/sql/sqltypes.py:3734: AttributeError
+
+The above exception was the direct cause of the following exception:
+
+self = <test_user_routes.TestUpdateUserProfile object at 0x71748ab570e0>
+client = <httpx.AsyncClient object at 0x71748a8e7b60>
+db = <sqlalchemy.orm.session.AsyncSession object at 0x71748a9286b0>
+
+    async def test_patch_is_partial_other_fields_unchanged(self, client, db):
+        uid = await _seed_profile(db, username="uche")
+        from conftest import make_token
+        token = make_token(username="uche")
+    
+>       patch_resp = await client.patch(
+            f"{USERS_URL}/{uid}",
+            json={"full_name": "Uche Nnodim"},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+
+tests/test_user_routes.py:94: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+../pizzasaletests_env/lib/python3.12/site-packages/httpx/_client.py:1933: in patch
+    return await self.request(
+../pizzasaletests_env/lib/python3.12/site-packages/httpx/_client.py:1540: in request
+    return await self.send(request, auth=auth, follow_redirects=follow_redirects)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../pizzasaletests_env/lib/python3.12/site-packages/httpx/_client.py:1629: in send
+    response = await self._send_handling_auth(
+../pizzasaletests_env/lib/python3.12/site-packages/httpx/_client.py:1657: in _send_handling_auth
+    response = await self._send_handling_redirects(
+../pizzasaletests_env/lib/python3.12/site-packages/httpx/_client.py:1694: in _send_handling_redirects
+    response = await self._send_single_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../pizzasaletests_env/lib/python3.12/site-packages/httpx/_client.py:1730: in _send_single_request
+    response = await transport.handle_async_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../pizzasaletests_env/lib/python3.12/site-packages/httpx/_transports/asgi.py:170: in handle_async_request
+    await self.app(scope, receive, send)
+../pizzasaletests_env/lib/python3.12/site-packages/fastapi/applications.py:1163: in __call__
+    await super().__call__(scope, receive, send)
+../pizzasaletests_env/lib/python3.12/site-packages/starlette/applications.py:90: in __call__
+    await self.middleware_stack(scope, receive, send)
+../pizzasaletests_env/lib/python3.12/site-packages/starlette/middleware/errors.py:186: in __call__
+    raise exc
+../pizzasaletests_env/lib/python3.12/site-packages/starlette/middleware/errors.py:164: in __call__
+    await self.app(scope, receive, _send)
+../pizzasaletests_env/lib/python3.12/site-packages/starlette/middleware/exceptions.py:63: in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+../pizzasaletests_env/lib/python3.12/site-packages/starlette/_exception_handler.py:53: in wrapped_app
+    raise exc
+../pizzasaletests_env/lib/python3.12/site-packages/starlette/_exception_handler.py:42: in wrapped_app
+    await app(scope, receive, sender)
+../pizzasaletests_env/lib/python3.12/site-packages/fastapi/middleware/asyncexitstack.py:18: in __call__
+    await self.app(scope, receive, send)
+../pizzasaletests_env/lib/python3.12/site-packages/starlette/routing.py:660: in __call__
+    await self.middleware_stack(scope, receive, send)
+../pizzasaletests_env/lib/python3.12/site-packages/fastapi/routing.py:2531: in app
+    await route.handle(scope, receive, send)
+../pizzasaletests_env/lib/python3.12/site-packages/fastapi/routing.py:1700: in handle
+    await self.original_router.handle(scope, receive, send)
+../pizzasaletests_env/lib/python3.12/site-packages/fastapi/routing.py:2586: in handle
+    await included_router._handle_selected(scope, receive, send)
+../pizzasaletests_env/lib/python3.12/site-packages/fastapi/routing.py:1720: in _handle_selected
+    await original_route.handle(scope, receive, send)
+../pizzasaletests_env/lib/python3.12/site-packages/fastapi/routing.py:1239: in handle
+    await app(scope, receive, send)
+../pizzasaletests_env/lib/python3.12/site-packages/fastapi/routing.py:150: in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+../pizzasaletests_env/lib/python3.12/site-packages/starlette/_exception_handler.py:53: in wrapped_app
+    raise exc
+../pizzasaletests_env/lib/python3.12/site-packages/starlette/_exception_handler.py:42: in wrapped_app
+    await app(scope, receive, sender)
+../pizzasaletests_env/lib/python3.12/site-packages/fastapi/routing.py:136: in app
+    response = await f(request)
+               ^^^^^^^^^^^^^^^^
+../pizzasaletests_env/lib/python3.12/site-packages/fastapi/routing.py:690: in app
+    raw_response = await run_endpoint_function(
+../pizzasaletests_env/lib/python3.12/site-packages/fastapi/routing.py:344: in run_endpoint_function
+    return await dependant.call(**values)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/api/user_routes.py:52: in update_user_profile
+    profile = await UserProfileService.get_profile_by_user_id(db, user_id)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/services/user_service.py:14: in get_profile_by_user_id
+    result = await db.execute(
+../pizzasaletests_env/lib/python3.12/site-packages/sqlalchemy/ext/asyncio/session.py:448: in execute
+    result = await greenlet_spawn(
+../pizzasaletests_env/lib/python3.12/site-packages/sqlalchemy/util/_concurrency_py3k.py:190: in greenlet_spawn
+    result = context.switch(*args, **kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../pizzasaletests_env/lib/python3.12/site-packages/sqlalchemy/orm/session.py:2373: in execute
+    return self._execute_internal(
+../pizzasaletests_env/lib/python3.12/site-packages/sqlalchemy/orm/session.py:2271: in _execute_internal
+    result: Result[Any] = compile_state_cls.orm_execute_statement(
+../pizzasaletests_env/lib/python3.12/site-packages/sqlalchemy/orm/context.py:306: in orm_execute_statement
+    result = conn.execute(
+../pizzasaletests_env/lib/python3.12/site-packages/sqlalchemy/engine/base.py:1421: in execute
+    return meth(
+../pizzasaletests_env/lib/python3.12/site-packages/sqlalchemy/sql/elements.py:526: in _execute_on_connection
+    return connection._execute_clauseelement(
+../pizzasaletests_env/lib/python3.12/site-packages/sqlalchemy/engine/base.py:1643: in _execute_clauseelement
+    ret = self._execute_context(
+../pizzasaletests_env/lib/python3.12/site-packages/sqlalchemy/engine/base.py:1823: in _execute_context
+    self._handle_dbapi_exception(
+../pizzasaletests_env/lib/python3.12/site-packages/sqlalchemy/engine/base.py:2365: in _handle_dbapi_exception
+    raise sqlalchemy_exception.with_traceback(exc_info[2]) from e
+../pizzasaletests_env/lib/python3.12/site-packages/sqlalchemy/engine/base.py:1817: in _execute_context
+    context = constructor(
+../pizzasaletests_env/lib/python3.12/site-packages/sqlalchemy/engine/default.py:1496: in _init_compiled
+    flattened_processors[key](compiled_params[key])
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+value = 'c302ce33-2aba-485b-a7f9-9f2bdd1aa28f'
+
+    def process(value):
+        if value is not None:
+>           value = value.hex
+                    ^^^^^^^^^
+E           sqlalchemy.exc.StatementError: (builtins.AttributeError) 'str' object has no attribute 'hex'
+E           [SQL: SELECT user_profiles.id, user_profiles.user_id, user_profiles.email, user_profiles.username, user_profiles.full_name, user_profiles.phone, user_profiles.delivery_address, user_profiles.dietary_preferences, user_profiles.favorite_order, user_profiles.notification_settings, user_profiles.created_at, user_profiles.updated_at 
+E           FROM user_profiles 
+E           WHERE user_profiles.user_id = ?]
+E           [parameters: [{}]]
+
+../pizzasaletests_env/lib/python3.12/site-packages/sqlalchemy/sql/sqltypes.py:3734: StatementError
+_________________ TestUpdateUserProfile.test_update_json_field _________________
+
+self = <sqlalchemy.engine.base.Connection object at 0x7174890a8b30>
+dialect = <sqlalchemy.dialects.sqlite.aiosqlite.SQLiteDialect_aiosqlite object at 0x71748acffd40>
+constructor = <bound method DefaultExecutionContext._init_compiled of <class 'sqlalchemy.dialects.sqlite.aiosqlite.SQLiteExecutionContext_aiosqlite'>>
+statement = <sqlalchemy.dialects.sqlite.base.SQLiteCompiler object at 0x71748af98e00>
+parameters = [{}]
+execution_options = immutabledict({'prebuffer_rows': True, '_result_disable_adapt_to_context': True})
+args = (<sqlalchemy.dialects.sqlite.base.SQLiteCompiler object at 0x71748af98e00>, [{}], <sqlalchemy.sql.selectable.Select ob... 0x7174890a8c50>, [BindParameter('%(124745329314944 user_id)s', '550b42fd-fcb9-4e52-998d-dcf0393e8ddf', type_=UUID())])
+kw = {'cache_hit': <CacheStats.CACHE_HIT: 0>}
+
+    def _execute_context(
+        self,
+        dialect: Dialect,
+        constructor: Callable[..., ExecutionContext],
+        statement: Union[str, Compiled],
+        parameters: Optional[_AnyMultiExecuteParams],
+        execution_options: _ExecuteOptions,
+        *args: Any,
+        **kw: Any,
+    ) -> CursorResult[Any]:
+        """Create an :class:`.ExecutionContext` and execute, returning
+        a :class:`_engine.CursorResult`."""
+    
+        if execution_options:
+            yp = execution_options.get("yield_per", None)
+            if yp:
+                execution_options = execution_options.union(
+                    {"stream_results": True, "max_row_buffer": yp}
+                )
+        try:
+            conn = self._dbapi_connection
+            if conn is None:
+                conn = self._revalidate_connection()
+    
+>           context = constructor(
+                dialect, self, conn, execution_options, *args, **kw
+            )
+
+../pizzasaletests_env/lib/python3.12/site-packages/sqlalchemy/engine/base.py:1817: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+../pizzasaletests_env/lib/python3.12/site-packages/sqlalchemy/engine/default.py:1496: in _init_compiled
+    flattened_processors[key](compiled_params[key])
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+value = '550b42fd-fcb9-4e52-998d-dcf0393e8ddf'
+
+    def process(value):
+        if value is not None:
+>           value = value.hex
+                    ^^^^^^^^^
+E           AttributeError: 'str' object has no attribute 'hex'
+
+../pizzasaletests_env/lib/python3.12/site-packages/sqlalchemy/sql/sqltypes.py:3734: AttributeError
+
+The above exception was the direct cause of the following exception:
+
+self = <test_user_routes.TestUpdateUserProfile object at 0x71748ab574d0>
+client = <httpx.AsyncClient object at 0x717489890ef0>
+db = <sqlalchemy.orm.session.AsyncSession object at 0x7174898904d0>
+
+    async def test_update_json_field(self, client, db):
+        uid = await _seed_profile(db, username="uche")
+        from conftest import make_token
+        token = make_token(username="uche")
+    
+        prefs = {"vegan": True, "allergens": ["gluten"]}
+>       resp = await client.patch(
+            f"{USERS_URL}/{uid}",
+            json={"dietary_preferences": prefs},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+
+tests/test_user_routes.py:117: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+../pizzasaletests_env/lib/python3.12/site-packages/httpx/_client.py:1933: in patch
+    return await self.request(
+../pizzasaletests_env/lib/python3.12/site-packages/httpx/_client.py:1540: in request
+    return await self.send(request, auth=auth, follow_redirects=follow_redirects)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../pizzasaletests_env/lib/python3.12/site-packages/httpx/_client.py:1629: in send
+    response = await self._send_handling_auth(
+../pizzasaletests_env/lib/python3.12/site-packages/httpx/_client.py:1657: in _send_handling_auth
+    response = await self._send_handling_redirects(
+../pizzasaletests_env/lib/python3.12/site-packages/httpx/_client.py:1694: in _send_handling_redirects
+    response = await self._send_single_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../pizzasaletests_env/lib/python3.12/site-packages/httpx/_client.py:1730: in _send_single_request
+    response = await transport.handle_async_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../pizzasaletests_env/lib/python3.12/site-packages/httpx/_transports/asgi.py:170: in handle_async_request
+    await self.app(scope, receive, send)
+../pizzasaletests_env/lib/python3.12/site-packages/fastapi/applications.py:1163: in __call__
+    await super().__call__(scope, receive, send)
+../pizzasaletests_env/lib/python3.12/site-packages/starlette/applications.py:90: in __call__
+    await self.middleware_stack(scope, receive, send)
+../pizzasaletests_env/lib/python3.12/site-packages/starlette/middleware/errors.py:186: in __call__
+    raise exc
+../pizzasaletests_env/lib/python3.12/site-packages/starlette/middleware/errors.py:164: in __call__
+    await self.app(scope, receive, _send)
+../pizzasaletests_env/lib/python3.12/site-packages/starlette/middleware/exceptions.py:63: in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+../pizzasaletests_env/lib/python3.12/site-packages/starlette/_exception_handler.py:53: in wrapped_app
+    raise exc
+../pizzasaletests_env/lib/python3.12/site-packages/starlette/_exception_handler.py:42: in wrapped_app
+    await app(scope, receive, sender)
+../pizzasaletests_env/lib/python3.12/site-packages/fastapi/middleware/asyncexitstack.py:18: in __call__
+    await self.app(scope, receive, send)
+../pizzasaletests_env/lib/python3.12/site-packages/starlette/routing.py:660: in __call__
+    await self.middleware_stack(scope, receive, send)
+../pizzasaletests_env/lib/python3.12/site-packages/fastapi/routing.py:2531: in app
+    await route.handle(scope, receive, send)
+../pizzasaletests_env/lib/python3.12/site-packages/fastapi/routing.py:1700: in handle
+    await self.original_router.handle(scope, receive, send)
+../pizzasaletests_env/lib/python3.12/site-packages/fastapi/routing.py:2586: in handle
+    await included_router._handle_selected(scope, receive, send)
+../pizzasaletests_env/lib/python3.12/site-packages/fastapi/routing.py:1720: in _handle_selected
+    await original_route.handle(scope, receive, send)
+../pizzasaletests_env/lib/python3.12/site-packages/fastapi/routing.py:1239: in handle
+    await app(scope, receive, send)
+../pizzasaletests_env/lib/python3.12/site-packages/fastapi/routing.py:150: in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+../pizzasaletests_env/lib/python3.12/site-packages/starlette/_exception_handler.py:53: in wrapped_app
+    raise exc
+../pizzasaletests_env/lib/python3.12/site-packages/starlette/_exception_handler.py:42: in wrapped_app
+    await app(scope, receive, sender)
+../pizzasaletests_env/lib/python3.12/site-packages/fastapi/routing.py:136: in app
+    response = await f(request)
+               ^^^^^^^^^^^^^^^^
+../pizzasaletests_env/lib/python3.12/site-packages/fastapi/routing.py:690: in app
+    raw_response = await run_endpoint_function(
+../pizzasaletests_env/lib/python3.12/site-packages/fastapi/routing.py:344: in run_endpoint_function
+    return await dependant.call(**values)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/api/user_routes.py:52: in update_user_profile
+    profile = await UserProfileService.get_profile_by_user_id(db, user_id)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/services/user_service.py:14: in get_profile_by_user_id
+    result = await db.execute(
+../pizzasaletests_env/lib/python3.12/site-packages/sqlalchemy/ext/asyncio/session.py:448: in execute
+    result = await greenlet_spawn(
+../pizzasaletests_env/lib/python3.12/site-packages/sqlalchemy/util/_concurrency_py3k.py:190: in greenlet_spawn
+    result = context.switch(*args, **kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../pizzasaletests_env/lib/python3.12/site-packages/sqlalchemy/orm/session.py:2373: in execute
+    return self._execute_internal(
+../pizzasaletests_env/lib/python3.12/site-packages/sqlalchemy/orm/session.py:2271: in _execute_internal
+    result: Result[Any] = compile_state_cls.orm_execute_statement(
+../pizzasaletests_env/lib/python3.12/site-packages/sqlalchemy/orm/context.py:306: in orm_execute_statement
+    result = conn.execute(
+../pizzasaletests_env/lib/python3.12/site-packages/sqlalchemy/engine/base.py:1421: in execute
+    return meth(
+../pizzasaletests_env/lib/python3.12/site-packages/sqlalchemy/sql/elements.py:526: in _execute_on_connection
+    return connection._execute_clauseelement(
+../pizzasaletests_env/lib/python3.12/site-packages/sqlalchemy/engine/base.py:1643: in _execute_clauseelement
+    ret = self._execute_context(
+../pizzasaletests_env/lib/python3.12/site-packages/sqlalchemy/engine/base.py:1823: in _execute_context
+    self._handle_dbapi_exception(
+../pizzasaletests_env/lib/python3.12/site-packages/sqlalchemy/engine/base.py:2365: in _handle_dbapi_exception
+    raise sqlalchemy_exception.with_traceback(exc_info[2]) from e
+../pizzasaletests_env/lib/python3.12/site-packages/sqlalchemy/engine/base.py:1817: in _execute_context
+    context = constructor(
+../pizzasaletests_env/lib/python3.12/site-packages/sqlalchemy/engine/default.py:1496: in _init_compiled
+    flattened_processors[key](compiled_params[key])
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+value = '550b42fd-fcb9-4e52-998d-dcf0393e8ddf'
+
+    def process(value):
+        if value is not None:
+>           value = value.hex
+                    ^^^^^^^^^
+E           sqlalchemy.exc.StatementError: (builtins.AttributeError) 'str' object has no attribute 'hex'
+E           [SQL: SELECT user_profiles.id, user_profiles.user_id, user_profiles.email, user_profiles.username, user_profiles.full_name, user_profiles.phone, user_profiles.delivery_address, user_profiles.dietary_preferences, user_profiles.favorite_order, user_profiles.notification_settings, user_profiles.created_at, user_profiles.updated_at 
+E           FROM user_profiles 
+E           WHERE user_profiles.user_id = ?]
+E           [parameters: [{}]]
+
+../pizzasaletests_env/lib/python3.12/site-packages/sqlalchemy/sql/sqltypes.py:3734: StatementError
+__________ TestUpdateUserProfile.test_update_other_users_profile_403 ___________
+
+self = <sqlalchemy.engine.base.Connection object at 0x7174890aed20>
+dialect = <sqlalchemy.dialects.sqlite.aiosqlite.SQLiteDialect_aiosqlite object at 0x71748acffd40>
+constructor = <bound method DefaultExecutionContext._init_compiled of <class 'sqlalchemy.dialects.sqlite.aiosqlite.SQLiteExecutionContext_aiosqlite'>>
+statement = <sqlalchemy.dialects.sqlite.base.SQLiteCompiler object at 0x71748af98e00>
+parameters = [{}]
+execution_options = immutabledict({'prebuffer_rows': True, '_result_disable_adapt_to_context': True})
+args = (<sqlalchemy.dialects.sqlite.base.SQLiteCompiler object at 0x71748af98e00>, [{}], <sqlalchemy.sql.selectable.Select ob... 0x7174890ac9b0>, [BindParameter('%(124745329340976 user_id)s', '5baf6133-9ccb-4371-8f74-5faa7354ec8b', type_=UUID())])
+kw = {'cache_hit': <CacheStats.CACHE_HIT: 0>}
+
+    def _execute_context(
+        self,
+        dialect: Dialect,
+        constructor: Callable[..., ExecutionContext],
+        statement: Union[str, Compiled],
+        parameters: Optional[_AnyMultiExecuteParams],
+        execution_options: _ExecuteOptions,
+        *args: Any,
+        **kw: Any,
+    ) -> CursorResult[Any]:
+        """Create an :class:`.ExecutionContext` and execute, returning
+        a :class:`_engine.CursorResult`."""
+    
+        if execution_options:
+            yp = execution_options.get("yield_per", None)
+            if yp:
+                execution_options = execution_options.union(
+                    {"stream_results": True, "max_row_buffer": yp}
+                )
+        try:
+            conn = self._dbapi_connection
+            if conn is None:
+                conn = self._revalidate_connection()
+    
+>           context = constructor(
+                dialect, self, conn, execution_options, *args, **kw
+            )
+
+../pizzasaletests_env/lib/python3.12/site-packages/sqlalchemy/engine/base.py:1817: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+../pizzasaletests_env/lib/python3.12/site-packages/sqlalchemy/engine/default.py:1496: in _init_compiled
+    flattened_processors[key](compiled_params[key])
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+value = '5baf6133-9ccb-4371-8f74-5faa7354ec8b'
+
+    def process(value):
+        if value is not None:
+>           value = value.hex
+                    ^^^^^^^^^
+E           AttributeError: 'str' object has no attribute 'hex'
+
+../pizzasaletests_env/lib/python3.12/site-packages/sqlalchemy/sql/sqltypes.py:3734: AttributeError
+
+The above exception was the direct cause of the following exception:
+
+self = <test_user_routes.TestUpdateUserProfile object at 0x71748ab578c0>
+client = <httpx.AsyncClient object at 0x7174890aa4e0>
+db = <sqlalchemy.orm.session.AsyncSession object at 0x7174890af1a0>
+
+    async def test_update_other_users_profile_403(self, client, db):
+        uid = await _seed_profile(db, username="victim")
+        from conftest import make_token
+        token = make_token(username="attacker")
+    
+>       resp = await client.patch(
+            f"{USERS_URL}/{uid}",
+            json={"full_name": "Hacked"},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+
+tests/test_user_routes.py:130: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+../pizzasaletests_env/lib/python3.12/site-packages/httpx/_client.py:1933: in patch
+    return await self.request(
+../pizzasaletests_env/lib/python3.12/site-packages/httpx/_client.py:1540: in request
+    return await self.send(request, auth=auth, follow_redirects=follow_redirects)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../pizzasaletests_env/lib/python3.12/site-packages/httpx/_client.py:1629: in send
+    response = await self._send_handling_auth(
+../pizzasaletests_env/lib/python3.12/site-packages/httpx/_client.py:1657: in _send_handling_auth
+    response = await self._send_handling_redirects(
+../pizzasaletests_env/lib/python3.12/site-packages/httpx/_client.py:1694: in _send_handling_redirects
+    response = await self._send_single_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../pizzasaletests_env/lib/python3.12/site-packages/httpx/_client.py:1730: in _send_single_request
+    response = await transport.handle_async_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../pizzasaletests_env/lib/python3.12/site-packages/httpx/_transports/asgi.py:170: in handle_async_request
+    await self.app(scope, receive, send)
+../pizzasaletests_env/lib/python3.12/site-packages/fastapi/applications.py:1163: in __call__
+    await super().__call__(scope, receive, send)
+../pizzasaletests_env/lib/python3.12/site-packages/starlette/applications.py:90: in __call__
+    await self.middleware_stack(scope, receive, send)
+../pizzasaletests_env/lib/python3.12/site-packages/starlette/middleware/errors.py:186: in __call__
+    raise exc
+../pizzasaletests_env/lib/python3.12/site-packages/starlette/middleware/errors.py:164: in __call__
+    await self.app(scope, receive, _send)
+../pizzasaletests_env/lib/python3.12/site-packages/starlette/middleware/exceptions.py:63: in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+../pizzasaletests_env/lib/python3.12/site-packages/starlette/_exception_handler.py:53: in wrapped_app
+    raise exc
+../pizzasaletests_env/lib/python3.12/site-packages/starlette/_exception_handler.py:42: in wrapped_app
+    await app(scope, receive, sender)
+../pizzasaletests_env/lib/python3.12/site-packages/fastapi/middleware/asyncexitstack.py:18: in __call__
+    await self.app(scope, receive, send)
+../pizzasaletests_env/lib/python3.12/site-packages/starlette/routing.py:660: in __call__
+    await self.middleware_stack(scope, receive, send)
+../pizzasaletests_env/lib/python3.12/site-packages/fastapi/routing.py:2531: in app
+    await route.handle(scope, receive, send)
+../pizzasaletests_env/lib/python3.12/site-packages/fastapi/routing.py:1700: in handle
+    await self.original_router.handle(scope, receive, send)
+../pizzasaletests_env/lib/python3.12/site-packages/fastapi/routing.py:2586: in handle
+    await included_router._handle_selected(scope, receive, send)
+../pizzasaletests_env/lib/python3.12/site-packages/fastapi/routing.py:1720: in _handle_selected
+    await original_route.handle(scope, receive, send)
+../pizzasaletests_env/lib/python3.12/site-packages/fastapi/routing.py:1239: in handle
+    await app(scope, receive, send)
+../pizzasaletests_env/lib/python3.12/site-packages/fastapi/routing.py:150: in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+../pizzasaletests_env/lib/python3.12/site-packages/starlette/_exception_handler.py:53: in wrapped_app
+    raise exc
+../pizzasaletests_env/lib/python3.12/site-packages/starlette/_exception_handler.py:42: in wrapped_app
+    await app(scope, receive, sender)
+../pizzasaletests_env/lib/python3.12/site-packages/fastapi/routing.py:136: in app
+    response = await f(request)
+               ^^^^^^^^^^^^^^^^
+../pizzasaletests_env/lib/python3.12/site-packages/fastapi/routing.py:690: in app
+    raw_response = await run_endpoint_function(
+../pizzasaletests_env/lib/python3.12/site-packages/fastapi/routing.py:344: in run_endpoint_function
+    return await dependant.call(**values)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/api/user_routes.py:52: in update_user_profile
+    profile = await UserProfileService.get_profile_by_user_id(db, user_id)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/services/user_service.py:14: in get_profile_by_user_id
+    result = await db.execute(
+../pizzasaletests_env/lib/python3.12/site-packages/sqlalchemy/ext/asyncio/session.py:448: in execute
+    result = await greenlet_spawn(
+../pizzasaletests_env/lib/python3.12/site-packages/sqlalchemy/util/_concurrency_py3k.py:190: in greenlet_spawn
+    result = context.switch(*args, **kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../pizzasaletests_env/lib/python3.12/site-packages/sqlalchemy/orm/session.py:2373: in execute
+    return self._execute_internal(
+../pizzasaletests_env/lib/python3.12/site-packages/sqlalchemy/orm/session.py:2271: in _execute_internal
+    result: Result[Any] = compile_state_cls.orm_execute_statement(
+../pizzasaletests_env/lib/python3.12/site-packages/sqlalchemy/orm/context.py:306: in orm_execute_statement
+    result = conn.execute(
+../pizzasaletests_env/lib/python3.12/site-packages/sqlalchemy/engine/base.py:1421: in execute
+    return meth(
+../pizzasaletests_env/lib/python3.12/site-packages/sqlalchemy/sql/elements.py:526: in _execute_on_connection
+    return connection._execute_clauseelement(
+../pizzasaletests_env/lib/python3.12/site-packages/sqlalchemy/engine/base.py:1643: in _execute_clauseelement
+    ret = self._execute_context(
+../pizzasaletests_env/lib/python3.12/site-packages/sqlalchemy/engine/base.py:1823: in _execute_context
+    self._handle_dbapi_exception(
+../pizzasaletests_env/lib/python3.12/site-packages/sqlalchemy/engine/base.py:2365: in _handle_dbapi_exception
+    raise sqlalchemy_exception.with_traceback(exc_info[2]) from e
+../pizzasaletests_env/lib/python3.12/site-packages/sqlalchemy/engine/base.py:1817: in _execute_context
+    context = constructor(
+../pizzasaletests_env/lib/python3.12/site-packages/sqlalchemy/engine/default.py:1496: in _init_compiled
+    flattened_processors[key](compiled_params[key])
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+value = '5baf6133-9ccb-4371-8f74-5faa7354ec8b'
+
+    def process(value):
+        if value is not None:
+>           value = value.hex
+                    ^^^^^^^^^
+E           sqlalchemy.exc.StatementError: (builtins.AttributeError) 'str' object has no attribute 'hex'
+E           [SQL: SELECT user_profiles.id, user_profiles.user_id, user_profiles.email, user_profiles.username, user_profiles.full_name, user_profiles.phone, user_profiles.delivery_address, user_profiles.dietary_preferences, user_profiles.favorite_order, user_profiles.notification_settings, user_profiles.created_at, user_profiles.updated_at 
+E           FROM user_profiles 
+E           WHERE user_profiles.user_id = ?]
+E           [parameters: [{}]]
+
+../pizzasaletests_env/lib/python3.12/site-packages/sqlalchemy/sql/sqltypes.py:3734: StatementError
+__________ TestUpdateUserProfile.test_update_nonexistent_profile_404 ___________
+
+self = <sqlalchemy.engine.base.Connection object at 0x717489176c00>
+dialect = <sqlalchemy.dialects.sqlite.aiosqlite.SQLiteDialect_aiosqlite object at 0x71748acffd40>
+constructor = <bound method DefaultExecutionContext._init_compiled of <class 'sqlalchemy.dialects.sqlite.aiosqlite.SQLiteExecutionContext_aiosqlite'>>
+statement = <sqlalchemy.dialects.sqlite.base.SQLiteCompiler object at 0x71748af98e00>
+parameters = [{}]
+execution_options = immutabledict({'prebuffer_rows': True, '_result_disable_adapt_to_context': True})
+args = (<sqlalchemy.dialects.sqlite.base.SQLiteCompiler object at 0x71748af98e00>, [{}], <sqlalchemy.sql.selectable.Select ob... 0x717489176d80>, [BindParameter('%(124745330159024 user_id)s', '663e33c9-3606-4679-9a60-4d1e657a9935', type_=UUID())])
+kw = {'cache_hit': <CacheStats.CACHE_HIT: 0>}
+
+    def _execute_context(
+        self,
+        dialect: Dialect,
+        constructor: Callable[..., ExecutionContext],
+        statement: Union[str, Compiled],
+        parameters: Optional[_AnyMultiExecuteParams],
+        execution_options: _ExecuteOptions,
+        *args: Any,
+        **kw: Any,
+    ) -> CursorResult[Any]:
+        """Create an :class:`.ExecutionContext` and execute, returning
+        a :class:`_engine.CursorResult`."""
+    
+        if execution_options:
+            yp = execution_options.get("yield_per", None)
+            if yp:
+                execution_options = execution_options.union(
+                    {"stream_results": True, "max_row_buffer": yp}
+                )
+        try:
+            conn = self._dbapi_connection
+            if conn is None:
+                conn = self._revalidate_connection()
+    
+>           context = constructor(
+                dialect, self, conn, execution_options, *args, **kw
+            )
+
+../pizzasaletests_env/lib/python3.12/site-packages/sqlalchemy/engine/base.py:1817: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+../pizzasaletests_env/lib/python3.12/site-packages/sqlalchemy/engine/default.py:1496: in _init_compiled
+    flattened_processors[key](compiled_params[key])
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+value = '663e33c9-3606-4679-9a60-4d1e657a9935'
+
+    def process(value):
+        if value is not None:
+>           value = value.hex
+                    ^^^^^^^^^
+E           AttributeError: 'str' object has no attribute 'hex'
+
+../pizzasaletests_env/lib/python3.12/site-packages/sqlalchemy/sql/sqltypes.py:3734: AttributeError
+
+The above exception was the direct cause of the following exception:
+
+self = <test_user_routes.TestUpdateUserProfile object at 0x71748ab780e0>
+client = <httpx.AsyncClient object at 0x717489174320>
+db = <sqlalchemy.orm.session.AsyncSession object at 0x7174891755e0>
+
+    async def test_update_nonexistent_profile_404(self, client, db):
+        from conftest import make_token
+        token = make_token(username="uche")
+>       resp = await client.patch(
+            f"{USERS_URL}/{_uuid()}",
+            json={"full_name": "Ghost"},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+
+tests/test_user_routes.py:145: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+../pizzasaletests_env/lib/python3.12/site-packages/httpx/_client.py:1933: in patch
+    return await self.request(
+../pizzasaletests_env/lib/python3.12/site-packages/httpx/_client.py:1540: in request
+    return await self.send(request, auth=auth, follow_redirects=follow_redirects)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../pizzasaletests_env/lib/python3.12/site-packages/httpx/_client.py:1629: in send
+    response = await self._send_handling_auth(
+../pizzasaletests_env/lib/python3.12/site-packages/httpx/_client.py:1657: in _send_handling_auth
+    response = await self._send_handling_redirects(
+../pizzasaletests_env/lib/python3.12/site-packages/httpx/_client.py:1694: in _send_handling_redirects
+    response = await self._send_single_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../pizzasaletests_env/lib/python3.12/site-packages/httpx/_client.py:1730: in _send_single_request
+    response = await transport.handle_async_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../pizzasaletests_env/lib/python3.12/site-packages/httpx/_transports/asgi.py:170: in handle_async_request
+    await self.app(scope, receive, send)
+../pizzasaletests_env/lib/python3.12/site-packages/fastapi/applications.py:1163: in __call__
+    await super().__call__(scope, receive, send)
+../pizzasaletests_env/lib/python3.12/site-packages/starlette/applications.py:90: in __call__
+    await self.middleware_stack(scope, receive, send)
+../pizzasaletests_env/lib/python3.12/site-packages/starlette/middleware/errors.py:186: in __call__
+    raise exc
+../pizzasaletests_env/lib/python3.12/site-packages/starlette/middleware/errors.py:164: in __call__
+    await self.app(scope, receive, _send)
+../pizzasaletests_env/lib/python3.12/site-packages/starlette/middleware/exceptions.py:63: in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+../pizzasaletests_env/lib/python3.12/site-packages/starlette/_exception_handler.py:53: in wrapped_app
+    raise exc
+../pizzasaletests_env/lib/python3.12/site-packages/starlette/_exception_handler.py:42: in wrapped_app
+    await app(scope, receive, sender)
+../pizzasaletests_env/lib/python3.12/site-packages/fastapi/middleware/asyncexitstack.py:18: in __call__
+    await self.app(scope, receive, send)
+../pizzasaletests_env/lib/python3.12/site-packages/starlette/routing.py:660: in __call__
+    await self.middleware_stack(scope, receive, send)
+../pizzasaletests_env/lib/python3.12/site-packages/fastapi/routing.py:2531: in app
+    await route.handle(scope, receive, send)
+../pizzasaletests_env/lib/python3.12/site-packages/fastapi/routing.py:1700: in handle
+    await self.original_router.handle(scope, receive, send)
+../pizzasaletests_env/lib/python3.12/site-packages/fastapi/routing.py:2586: in handle
+    await included_router._handle_selected(scope, receive, send)
+../pizzasaletests_env/lib/python3.12/site-packages/fastapi/routing.py:1720: in _handle_selected
+    await original_route.handle(scope, receive, send)
+../pizzasaletests_env/lib/python3.12/site-packages/fastapi/routing.py:1239: in handle
+    await app(scope, receive, send)
+../pizzasaletests_env/lib/python3.12/site-packages/fastapi/routing.py:150: in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+../pizzasaletests_env/lib/python3.12/site-packages/starlette/_exception_handler.py:53: in wrapped_app
+    raise exc
+../pizzasaletests_env/lib/python3.12/site-packages/starlette/_exception_handler.py:42: in wrapped_app
+    await app(scope, receive, sender)
+../pizzasaletests_env/lib/python3.12/site-packages/fastapi/routing.py:136: in app
+    response = await f(request)
+               ^^^^^^^^^^^^^^^^
+../pizzasaletests_env/lib/python3.12/site-packages/fastapi/routing.py:690: in app
+    raw_response = await run_endpoint_function(
+../pizzasaletests_env/lib/python3.12/site-packages/fastapi/routing.py:344: in run_endpoint_function
+    return await dependant.call(**values)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/api/user_routes.py:52: in update_user_profile
+    profile = await UserProfileService.get_profile_by_user_id(db, user_id)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/services/user_service.py:14: in get_profile_by_user_id
+    result = await db.execute(
+../pizzasaletests_env/lib/python3.12/site-packages/sqlalchemy/ext/asyncio/session.py:448: in execute
+    result = await greenlet_spawn(
+../pizzasaletests_env/lib/python3.12/site-packages/sqlalchemy/util/_concurrency_py3k.py:190: in greenlet_spawn
+    result = context.switch(*args, **kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../pizzasaletests_env/lib/python3.12/site-packages/sqlalchemy/orm/session.py:2373: in execute
+    return self._execute_internal(
+../pizzasaletests_env/lib/python3.12/site-packages/sqlalchemy/orm/session.py:2271: in _execute_internal
+    result: Result[Any] = compile_state_cls.orm_execute_statement(
+../pizzasaletests_env/lib/python3.12/site-packages/sqlalchemy/orm/context.py:306: in orm_execute_statement
+    result = conn.execute(
+../pizzasaletests_env/lib/python3.12/site-packages/sqlalchemy/engine/base.py:1421: in execute
+    return meth(
+../pizzasaletests_env/lib/python3.12/site-packages/sqlalchemy/sql/elements.py:526: in _execute_on_connection
+    return connection._execute_clauseelement(
+../pizzasaletests_env/lib/python3.12/site-packages/sqlalchemy/engine/base.py:1643: in _execute_clauseelement
+    ret = self._execute_context(
+../pizzasaletests_env/lib/python3.12/site-packages/sqlalchemy/engine/base.py:1823: in _execute_context
+    self._handle_dbapi_exception(
+../pizzasaletests_env/lib/python3.12/site-packages/sqlalchemy/engine/base.py:2365: in _handle_dbapi_exception
+    raise sqlalchemy_exception.with_traceback(exc_info[2]) from e
+../pizzasaletests_env/lib/python3.12/site-packages/sqlalchemy/engine/base.py:1817: in _execute_context
+    context = constructor(
+../pizzasaletests_env/lib/python3.12/site-packages/sqlalchemy/engine/default.py:1496: in _init_compiled
+    flattened_processors[key](compiled_params[key])
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+value = '663e33c9-3606-4679-9a60-4d1e657a9935'
+
+    def process(value):
+        if value is not None:
+>           value = value.hex
+                    ^^^^^^^^^
+E           sqlalchemy.exc.StatementError: (builtins.AttributeError) 'str' object has no attribute 'hex'
+E           [SQL: SELECT user_profiles.id, user_profiles.user_id, user_profiles.email, user_profiles.username, user_profiles.full_name, user_profiles.phone, user_profiles.delivery_address, user_profiles.dietary_preferences, user_profiles.favorite_order, user_profiles.notification_settings, user_profiles.created_at, user_profiles.updated_at 
+E           FROM user_profiles 
+E           WHERE user_profiles.user_id = ?]
+E           [parameters: [{}]]
+
+../pizzasaletests_env/lib/python3.12/site-packages/sqlalchemy/sql/sqltypes.py:3734: StatementError
+=============================== warnings summary ===============================
+app/schemas/user_schema.py:7
+  /home/uche-nnodim/pizzasale_api/user-service/app/schemas/user_schema.py:7: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    class UserProfileResponse(BaseModel):
+
+tests/test_user_routes.py: 24 warnings
+  /home/uche-nnodim/pizzasale_api/pizzasaletests_env/lib/python3.12/site-packages/jwt/api_jwt.py:125: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    now = timegm(datetime.utcnow().utctimetuple())
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/test_user_routes.py::TestGetUserProfile::test_get_own_profile_200
+FAILED tests/test_user_routes.py::TestGetUserProfile::test_get_other_users_profile_403
+FAILED tests/test_user_routes.py::TestGetUserProfile::test_get_nonexistent_profile_404
+FAILED tests/test_user_routes.py::TestUpdateUserProfile::test_update_full_name_200
+FAILED tests/test_user_routes.py::TestUpdateUserProfile::test_patch_is_partial_other_fields_unchanged
+FAILED tests/test_user_routes.py::TestUpdateUserProfile::test_update_json_field
+FAILED tests/test_user_routes.py::TestUpdateUserProfile::test_update_other_users_profile_403
+FAILED tests/test_user_routes.py::TestUpdateUserProfile::test_update_nonexistent_profile_404
+================== 8 failed, 22 passed, 25 warnings in 18.06s ==================

@@ -77,10 +77,16 @@ async def login(
     access = Authorize.create_access_token(
         subject=db_user.username,
         expires_time=timedelta(minutes=15),
-        user_claims={"is_staff": db_user.is_staff}
+        user_claims={
+            "is_staff": db_user.is_staff,
+            "user_id": str(db_user.id),   # embedded so downstream services can scope
+        }                                  # operations to a user without knowing their username
     )
 
-    refresh = Authorize.create_refresh_token(subject=db_user.username)
+    refresh = Authorize.create_refresh_token(
+        subject=db_user.username,
+        user_claims={"user_id": str(db_user.id)}
+    )
 
     return {"access": access,
             "refresh": refresh,
@@ -93,9 +99,13 @@ async def refresh(Authorize: AuthJWT = Depends()):
     Authorize.jwt_refresh_token_required()
 
     current_user = Authorize.get_jwt_subject()
+    claims = Authorize.get_raw_jwt()
+    user_id = claims.get("user_id")
+
     new_access = Authorize.create_access_token(
         subject=current_user,
         expires_time=timedelta(minutes=15),
+        user_claims={"user_id": user_id} if user_id else {}
     )
 
     return {"access": new_access, "token_type": "bearer"}
