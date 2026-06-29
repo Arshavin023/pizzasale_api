@@ -14,6 +14,14 @@ from app.utils.product_client import ProductServiceError
 router = APIRouter(tags=["Orders"])
 
 
+def _parse_uuid(value: str, field: str = "id") -> UUID:
+    """Cast a path parameter string to UUID, returning 422 on malformed input."""
+    try:
+        return UUID(value)
+    except ValueError:
+        raise HTTPException(status_code=422, detail=f"Invalid {field} format")
+
+
 # ─── Cart endpoints ───────────────────────────────────────────────
 
 @router.get("/cart", response_model=CartResponse)
@@ -59,10 +67,12 @@ async def remove_from_cart(
     user_id: UUID = Depends(get_current_user_id),
     db: AsyncSession = Depends(get_db),
 ):
+    # item_id comes in as a string path param — cast explicitly
+    uid = _parse_uuid(item_id, "item_id")
     cart = await CartService.get_active_cart(db, user_id)
     if not cart:
         raise HTTPException(status_code=404, detail="No active cart found")
-    removed = await CartService.remove_item(db, cart, item_id)
+    removed = await CartService.remove_item(db, cart, uid)
     if not removed:
         raise HTTPException(status_code=404, detail="Item not found in cart")
 
@@ -130,7 +140,9 @@ async def get_order(
     user_id: UUID = Depends(get_current_user_id),
     db: AsyncSession = Depends(get_db),
 ):
-    order = await OrderService.get_order(db, order_id, user_id)
+    # order_id comes in as a string path param — cast explicitly
+    uid = _parse_uuid(order_id, "order_id")
+    order = await OrderService.get_order(db, uid, user_id)
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
     return OrderResponse(

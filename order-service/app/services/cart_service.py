@@ -77,10 +77,10 @@ class CartService:
         return item
 
     @staticmethod
-    async def remove_item(db: AsyncSession, cart: Cart, item_id: str) -> bool:
+    async def remove_item(db: AsyncSession, cart: Cart, item_id: UUID) -> bool:
         result = await db.execute(
             select(CartItem).where(
-                CartItem.id == UUID(item_id),
+                CartItem.id == item_id,
                 CartItem.cart_id == cart.id,
             )
         )

@@ -13,3 +13,6 @@ uuid6
 itsdangerous
 boto3
 pika
+pytest-asyncio>=0.23
+httpx
+aiosqlite

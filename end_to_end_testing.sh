@@ -61,6 +61,46 @@ echo -e "  Product: ${PRODUCT_URL}"
 echo -e "  Order:   ${ORDER_URL}"
 echo -e "  Test user: ${TEST_USERNAME}"
 
+# ═══════════════════════════════════════════════════════════════════════════
+# PHASE -1 — Per-service unit/integration tests (run inside containers)
+# ═══════════════════════════════════════════════════════════════════════════
+step "Phase -1 — Service Unit Tests (inside containers)"
+
+run_service_tests() {
+    local service="$1"
+    local container="$2"
+
+    echo -e "\n  ${YELLOW}▷ Running tests for ${service}...${RESET}"
+
+    # PYTHONPATH=/app ensures 'from app.xxx import yyy' resolves correctly
+    # inside the container. -T disables pseudo-TTY for non-interactive exec.
+    # -p no:cacheprovider avoids writing .pytest_cache inside the container.
+    if docker compose exec -T -e PYTHONPATH=/app "$container" \
+        pytest tests/ -v --tb=short -p no:cacheprovider 2>&1 \
+        | tee /tmp/${service}_test_output.txt \
+        | grep -E "PASSED|FAILED|ERROR|error|passed|failed|warning"; then
+
+        local result
+        result=$(tail -1 /tmp/${service}_test_output.txt)
+
+        if echo "$result" | grep -q "failed\|error"; then
+            echo -e "  ${RED}✗ FAIL${RESET} — ${service} tests failed: ${result}"
+            echo -e "  Full output:"
+            cat /tmp/${service}_test_output.txt
+            fail "${service} unit tests must pass before running E2E flow"
+        else
+            pass "${service} tests: ${result}"
+        fi
+    else
+        fail "${service} pytest exited with non-zero status — check container logs"
+    fi
+}
+
+run_service_tests "auth-service"    "auth-service"
+run_service_tests "user-service"    "user-service"
+run_service_tests "product-service" "product-service"
+run_service_tests "order-service"   "order-service"
+
 # ── Helper: HTTP request with status check ─────────────────────────────────
 # Usage: http_request METHOD URL [expected_status] [body] [token]
 # Returns the response body via $RESPONSE
@@ -121,7 +161,7 @@ step "Phase 1 — User Registration (auth-service)"
 info "Cleaning up any previous e2e test users with this email (allows clean re-runs)"
 PGPASSWORD="UcheJudeNnodim3420878321" psql \
     -h localhost -p 5432 -U microservices -d auth_service_db \
-    -c "DELETE FROM users_auth WHERE email = '${TEST_EMAIL}';" \
+    -c "DELETE FROM users_auth WHERE email = '${TEST_EMAIL}' AND username LIKE 'e2e_user_%';" \
     > /dev/null 2>&1 || true
 
 info "Registering test user: ${TEST_USERNAME}"
@@ -182,8 +222,8 @@ pass "Token refresh working"
 # ═══════════════════════════════════════════════════════════════════════════
 step "Phase 3 — User Profile (user-service)"
 
-info "Waiting 2s for user-service-worker to consume user.registered event..."
-sleep 2
+info "Waiting 6s for user-service-worker to consume user.registered event..."
+sleep 6
 
 http_request GET "${USER_URL}/users/${USER_ID}" 200 "" "$USER_TOKEN" \
     || fail "Profile fetch failed: $RESPONSE"
@@ -363,6 +403,12 @@ echo ""
 echo -e "${BOLD}╔══════════════════════════════════════════════════════╗${RESET}"
 echo -e "${BOLD}║              All phases passed ✔                     ║${RESET}"
 echo -e "${BOLD}╚══════════════════════════════════════════════════════╝${RESET}"
+echo ""
+echo -e "  ${YELLOW}Service tests (inside containers):${RESET}"
+echo -e "  • auth-service    → all tests passed"
+echo -e "  • user-service    → all tests passed"
+echo -e "  • product-service → all tests passed"
+echo -e "  • order-service   → all tests passed"
 echo ""
 echo -e "  Test user:  ${TEST_USERNAME}"
 echo -e "  user_id:    ${USER_ID}"

@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi_jwt_auth2 import AuthJWT
+from uuid import UUID
 
 from app.schemas.user_schema import UserProfileResponse, UserProfileUpdate
 from app.services.user_service import UserProfileService
@@ -30,7 +31,15 @@ async def get_user_profile(
     Authorize.jwt_required()
     current_username = Authorize.get_jwt_subject()
 
-    profile = await UserProfileService.get_profile_by_user_id(db, user_id)
+    # Cast to UUID object — the service/SQLAlchemy layer needs a real
+    # UUID, not a string. PostgreSQL handles implicit conversion but
+    # SQLite (used in tests) does not, and explicit is always safer.
+    try:
+        uid = UUID(user_id)
+    except ValueError:
+        raise HTTPException(status_code=422, detail="Invalid user_id format")
+
+    profile = await UserProfileService.get_profile_by_user_id(db, uid)
     if not profile:
         raise HTTPException(status_code=404, detail="Profile not found")
 
@@ -49,7 +58,12 @@ async def update_user_profile(
     Authorize.jwt_required()
     current_username = Authorize.get_jwt_subject()
 
-    profile = await UserProfileService.get_profile_by_user_id(db, user_id)
+    try:
+        uid = UUID(user_id)
+    except ValueError:
+        raise HTTPException(status_code=422, detail="Invalid user_id format")
+
+    profile = await UserProfileService.get_profile_by_user_id(db, uid)
     if not profile:
         raise HTTPException(status_code=404, detail="Profile not found")
 

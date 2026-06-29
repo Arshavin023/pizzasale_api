@@ -37,3 +37,10 @@ htmlcov/
 docker-compose.override.yml
 pizzasaleapi_venv/
 authservice_userservice.txt
+
+
+# Tests debug files
+auth-service/tests/*.txt
+user-service/tests/*.txt
+product-service/tests/*.txt
+order-service/tests/*.txt
