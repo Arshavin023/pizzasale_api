@@ -1,9 +1,12 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.future import select
 from uuid import UUID
+from pydantic import BaseModel
 
 from app.db.session import get_db
 from app.core.auth import get_current_user_id
+from app.models.order import Order, OrderStatus
 from app.schemas.order_schema import (
     CartItemAdd, CartResponse, OrderResponse
 )
@@ -13,9 +16,11 @@ from app.utils.product_client import ProductServiceError
 
 router = APIRouter(tags=["Orders"])
 
+class StatusUpdate(BaseModel):
+    status: str
+
 
 def _parse_uuid(value: str, field: str = "id") -> UUID:
-    """Cast a path parameter string to UUID, returning 422 on malformed input."""
     try:
         return UUID(value)
     except ValueError:
@@ -67,12 +72,10 @@ async def remove_from_cart(
     user_id: UUID = Depends(get_current_user_id),
     db: AsyncSession = Depends(get_db),
 ):
-    # item_id comes in as a string path param — cast explicitly
-    uid = _parse_uuid(item_id, "item_id")
     cart = await CartService.get_active_cart(db, user_id)
     if not cart:
         raise HTTPException(status_code=404, detail="No active cart found")
-    removed = await CartService.remove_item(db, cart, uid)
+    removed = await CartService.remove_item(db, cart, item_id)
     if not removed:
         raise HTTPException(status_code=404, detail="Item not found in cart")
 
@@ -107,6 +110,8 @@ async def checkout(
         total_amount=order.total_amount,
         items=order.items,
         price_changes=getattr(order, "_price_changes", []),
+        authorization_url=getattr(order, "_authorization_url", None),
+        payment_reference=getattr(order, "_payment_reference", None),
         created_at=order.created_at,
         updated_at=order.updated_at,
     )
@@ -140,7 +145,6 @@ async def get_order(
     user_id: UUID = Depends(get_current_user_id),
     db: AsyncSession = Depends(get_db),
 ):
-    # order_id comes in as a string path param — cast explicitly
     uid = _parse_uuid(order_id, "order_id")
     order = await OrderService.get_order(db, uid, user_id)
     if not order:
@@ -154,3 +158,32 @@ async def get_order(
         created_at=order.created_at,
         updated_at=order.updated_at,
     )
+
+
+@router.patch("/orders/{order_id}/status")
+async def update_order_status(
+    order_id: str,
+    update: StatusUpdate,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Internal endpoint — called by payment-service after webhook confirmation.
+    No JWT required since this is service-to-service on the internal Docker
+    network, not exposed to the public internet.
+    """
+    uid = _parse_uuid(order_id, "order_id")
+
+    try:
+        new_status = OrderStatus(update.status)
+    except ValueError:
+        raise HTTPException(status_code=400, detail=f"Invalid status: {update.status}")
+
+    result = await db.execute(select(Order).where(Order.id == uid))
+    order = result.scalar_one_or_none()
+
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+
+    order.status = new_status
+    await db.commit()
+    return {"order_id": order_id, "status": new_status}

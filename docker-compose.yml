@@ -134,6 +134,7 @@ services:
       DATABASE_URL: ${ORDER_DATABASE_URL}
       RABBITMQ_URL: amqp://${RABBITMQ_USER}:${RABBITMQ_PASSWORD}@rabbitmq:5672/
       PRODUCT_SERVICE_URL: http://product-service:8000
+      PAYMENT_SERVICE_URL: http://payment-service:8000
 
     extra_hosts:
       - "host.docker.internal:host-gateway"
@@ -143,6 +144,34 @@ services:
 
     volumes:
       - ./order-service:/app
+
+  payment-service:
+    build: ./payment-service
+    container_name: payment-service
+    restart: always
+
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+
+    env_file:
+      - .env
+
+    environment:
+      DATABASE_URL: ${PAYMENT_DATABASE_URL}
+      RABBITMQ_URL: amqp://${RABBITMQ_USER}:${RABBITMQ_PASSWORD}@rabbitmq:5672/
+      ORDER_SERVICE_URL: http://order-service:8000
+      PAYSTACK_SECRET_KEY: ${PAYSTACK_SECRET_KEY}
+      PAYSTACK_PUBLIC_KEY: ${PAYSTACK_PUBLIC_KEY}
+
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+    ports:
+      - "8005:8000"
+
+    volumes:
+      - ./payment-service:/app
 
 volumes:
   rabbitmq_data:

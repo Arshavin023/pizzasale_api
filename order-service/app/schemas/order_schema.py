@@ -40,6 +40,7 @@ class CartResponse(BaseModel):
 
 class OrderStatusEnum(str, Enum):
     draft = "draft"
+    pending_payment = "pending_payment"
     confirmed = "confirmed"
     paid = "paid"
     shipped = "shipped"
@@ -67,6 +68,8 @@ class OrderResponse(BaseModel):
     total_amount: Decimal
     items: List[OrderItemResponse] = []
     price_changes: List[Any] = []
+    authorization_url: Optional[str] = None
+    payment_reference: Optional[str] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
 

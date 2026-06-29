@@ -8,7 +8,8 @@ from app.db.base import Base
 
 class OrderStatus(str, enum.Enum):
     draft = "draft"
-    confirmed = "confirmed"   # order-service drives this (checkout)
+    pending_payment = "pending_payment"  # order created, awaiting payment
+    confirmed = "confirmed"   # payment succeeded
     paid = "paid"             # payment-service will drive this later
     shipped = "shipped"       # shipping-service will drive this later
     delivered = "delivered"   # shipping-service will drive this later
