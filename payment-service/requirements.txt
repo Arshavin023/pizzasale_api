@@ -8,3 +8,7 @@ pydantic
 uuid6
 pika
 httpx
+pytest
+pytest-asyncio
+aiosqlite
+PyJWT
