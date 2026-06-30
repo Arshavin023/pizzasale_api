@@ -1,0 +1,401 @@
+
+[1m╔══════════════════════════════════════════════════════╗[0m
+[1m║     Pizzasale API — End-to-End User Journey Test     ║[0m
+[1m╚══════════════════════════════════════════════════════╝[0m
+  Auth:    http://localhost:8001
+  User:    http://localhost:8002
+  Product: http://localhost:8003
+  Order:   http://localhost:8004
+  Test user: e2e_user_1782816767
+
+[0;34m[1m▶ Phase -1 — Service Unit Tests (inside containers)[0m
+
+  [1;33m▷ Running tests for auth-service...[0m
+tests/test_auth_routes.py::TestRegisterRoute::test_register_success_201 PASSED [  1%]
+tests/test_auth_routes.py::TestRegisterRoute::test_register_duplicate_username_409 PASSED [  2%]
+tests/test_auth_routes.py::TestRegisterRoute::test_register_duplicate_email_409 PASSED [  3%]
+tests/test_auth_routes.py::TestRegisterRoute::test_register_email_failure_returns_201_with_detail PASSED [  5%]
+tests/test_auth_routes.py::TestRegisterRoute::test_register_weak_password_422 PASSED [  6%]
+tests/test_auth_routes.py::TestRegisterRoute::test_register_invalid_email_422 PASSED [  7%]
+tests/test_auth_routes.py::TestRegisterRoute::test_register_missing_field_422 PASSED [  8%]
+tests/test_auth_routes.py::TestVerifyEmailRoute::test_verify_email_activates_user PASSED [ 10%]
+tests/test_auth_routes.py::TestVerifyEmailRoute::test_verify_invalid_token_400 PASSED [ 11%]
+tests/test_auth_routes.py::TestVerifyEmailRoute::test_verify_unknown_email_token_404 PASSED [ 12%]
+tests/test_auth_routes.py::TestLoginRoute::test_login_returns_tokens PASSED [ 14%]
+tests/test_auth_routes.py::TestLoginRoute::test_login_wrong_password_401 PASSED [ 15%]
+tests/test_auth_routes.py::TestLoginRoute::test_login_unverified_user_403 PASSED [ 16%]
+tests/test_auth_routes.py::TestLoginRoute::test_login_nonexistent_user_401 PASSED [ 17%]
+tests/test_auth_routes.py::TestRefreshRoute::test_refresh_returns_new_access_token PASSED [ 19%]
+tests/test_auth_routes.py::TestRefreshRoute::test_refresh_with_access_token_fails PASSED [ 20%]
+tests/test_auth_routes.py::TestRefreshRoute::test_refresh_without_token_fails PASSED [ 21%]
+tests/test_auth_service.py::TestAuthServiceRegister::test_register_creates_user PASSED [ 23%]
+tests/test_auth_service.py::TestAuthServiceRegister::test_register_publishes_event PASSED [ 24%]
+tests/test_auth_service.py::TestAuthServiceRegister::test_duplicate_username_raises_auth_error PASSED [ 25%]
+tests/test_auth_service.py::TestAuthServiceRegister::test_duplicate_email_raises_auth_error PASSED [ 26%]
+tests/test_auth_service.py::TestAuthServiceRegister::test_publish_failure_does_not_raise PASSED [ 28%]
+tests/test_auth_service.py::TestAuthServiceAuthenticate::test_correct_credentials_returns_user PASSED [ 29%]
+tests/test_auth_service.py::TestAuthServiceAuthenticate::test_wrong_password_returns_none PASSED [ 30%]
+tests/test_auth_service.py::TestAuthServiceAuthenticate::test_nonexistent_username_returns_none PASSED [ 32%]
+tests/test_auth_service.py::TestActivateUser::test_activate_returns_true PASSED [ 33%]
+tests/test_auth_service.py::TestActivateUser::test_activate_sets_is_active PASSED [ 34%]
+tests/test_auth_service.py::TestActivateUser::test_activate_unknown_email_returns_false PASSED [ 35%]
+tests/test_auth_service.py::TestActivateUser::test_activate_already_active_is_idempotent PASSED [ 37%]
+tests/test_schemas_and_security.py::TestPasswordValidator::test_valid_password_passes PASSED [ 38%]
+tests/test_schemas_and_security.py::TestPasswordValidator::test_too_short_raises PASSED [ 39%]
+tests/test_schemas_and_security.py::TestPasswordValidator::test_no_uppercase_raises PASSED [ 41%]
+tests/test_schemas_and_security.py::TestPasswordValidator::test_no_digit_raises PASSED [ 42%]
+tests/test_schemas_and_security.py::TestPasswordValidator::test_no_special_char_raises PASSED [ 43%]
+tests/test_schemas_and_security.py::TestPasswordValidator::test_exactly_8_chars_passes PASSED [ 44%]
+tests/test_schemas_and_security.py::TestPasswordValidator::test_various_special_chars_accepted[!] PASSED [ 46%]
+tests/test_schemas_and_security.py::TestPasswordValidator::test_various_special_chars_accepted[@] PASSED [ 47%]
+tests/test_schemas_and_security.py::TestPasswordValidator::test_various_special_chars_accepted[#] PASSED [ 48%]
+tests/test_schemas_and_security.py::TestPasswordValidator::test_various_special_chars_accepted[$] PASSED [ 50%]
+tests/test_schemas_and_security.py::TestPasswordValidator::test_various_special_chars_accepted[%] PASSED [ 51%]
+tests/test_schemas_and_security.py::TestPasswordValidator::test_various_special_chars_accepted[^] PASSED [ 52%]
+tests/test_schemas_and_security.py::TestPasswordValidator::test_various_special_chars_accepted[&] PASSED [ 53%]
+tests/test_schemas_and_security.py::TestPasswordValidator::test_various_special_chars_accepted[*] PASSED [ 55%]
+tests/test_schemas_and_security.py::TestPasswordValidator::test_various_special_chars_accepted[(] PASSED [ 56%]
+tests/test_schemas_and_security.py::TestPasswordValidator::test_various_special_chars_accepted[)] PASSED [ 57%]
+tests/test_schemas_and_security.py::TestPasswordValidator::test_various_special_chars_accepted[,] PASSED [ 58%]
+tests/test_schemas_and_security.py::TestPasswordValidator::test_various_special_chars_accepted[.] PASSED [ 60%]
+tests/test_schemas_and_security.py::TestPasswordValidator::test_various_special_chars_accepted[?] PASSED [ 61%]
+tests/test_schemas_and_security.py::TestPasswordValidator::test_various_special_chars_accepted["] PASSED [ 62%]
+tests/test_schemas_and_security.py::TestPasswordValidator::test_various_special_chars_accepted[:] PASSED [ 64%]
+tests/test_schemas_and_security.py::TestPasswordValidator::test_various_special_chars_accepted[{] PASSED [ 65%]
+tests/test_schemas_and_security.py::TestPasswordValidator::test_various_special_chars_accepted[}] PASSED [ 66%]
+tests/test_schemas_and_security.py::TestPasswordValidator::test_various_special_chars_accepted[|] PASSED [ 67%]
+tests/test_schemas_and_security.py::TestPasswordValidator::test_various_special_chars_accepted[<] PASSED [ 69%]
+tests/test_schemas_and_security.py::TestPasswordValidator::test_various_special_chars_accepted[>] PASSED [ 70%]
+tests/test_schemas_and_security.py::TestPasswordValidator::test_various_special_chars_accepted[_] PASSED [ 71%]
+tests/test_schemas_and_security.py::TestPasswordValidator::test_various_special_chars_accepted[-] PASSED [ 73%]
+tests/test_schemas_and_security.py::TestPasswordValidator::test_various_special_chars_accepted[+] PASSED [ 74%]
+tests/test_schemas_and_security.py::TestPasswordValidator::test_various_special_chars_accepted[=] PASSED [ 75%]
+tests/test_schemas_and_security.py::TestPasswordValidator::test_various_special_chars_accepted[[] PASSED [ 76%]
+tests/test_schemas_and_security.py::TestPasswordValidator::test_various_special_chars_accepted[]] PASSED [ 78%]
+tests/test_schemas_and_security.py::TestPasswordValidator::test_various_special_chars_accepted[\\] PASSED [ 79%]
+tests/test_schemas_and_security.py::TestPasswordValidator::test_various_special_chars_accepted[;] PASSED [ 80%]
+tests/test_schemas_and_security.py::TestPasswordValidator::test_various_special_chars_accepted['] PASSED [ 82%]
+tests/test_schemas_and_security.py::TestPasswordValidator::test_various_special_chars_accepted[`] PASSED [ 83%]
+tests/test_schemas_and_security.py::TestPasswordValidator::test_various_special_chars_accepted[~] PASSED [ 84%]
+tests/test_schemas_and_security.py::TestSignUpModel::test_valid_signup PASSED [ 85%]
+tests/test_schemas_and_security.py::TestSignUpModel::test_invalid_email_rejected PASSED [ 87%]
+tests/test_schemas_and_security.py::TestSignUpModel::test_weak_password_rejected PASSED [ 88%]
+tests/test_schemas_and_security.py::TestSignUpModel::test_password_stored_as_provided PASSED [ 89%]
+tests/test_schemas_and_security.py::TestSecurity::test_hash_is_not_plaintext PASSED [ 91%]
+tests/test_schemas_and_security.py::TestSecurity::test_verify_correct_password PASSED [ 92%]
+tests/test_schemas_and_security.py::TestSecurity::test_verify_wrong_password PASSED [ 93%]
+tests/test_schemas_and_security.py::TestSecurity::test_two_hashes_of_same_password_differ PASSED [ 94%]
+tests/test_schemas_and_security.py::TestSecurity::test_hash_is_string PASSED [ 96%]
+tests/test_schemas_and_security.py::TestVerificationToken::test_round_trip PASSED [ 97%]
+tests/test_schemas_and_security.py::TestVerificationToken::test_tampered_token_returns_none PASSED [ 98%]
+tests/test_schemas_and_security.py::TestVerificationToken::test_empty_token_returns_none PASSED [100%]
+=============================== warnings summary ===============================
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+======================== 78 passed, 6 warnings in 9.92s ========================
+[0;32m✔ PASS[0m — auth-service tests: ======================== 78 passed, 6 warnings in 9.92s ========================
+
+  [1;33m▷ Running tests for user-service...[0m
+tests/test_consumer.py::TestProcessMessage::test_valid_message_acked PASSED [  3%]
+tests/test_consumer.py::TestProcessMessage::test_duplicate_event_still_acked PASSED [  6%]
+tests/test_consumer.py::TestProcessMessage::test_malformed_json_acked_not_requeued PASSED [ 10%]
+tests/test_consumer.py::TestProcessMessage::test_missing_user_id_acked PASSED [ 13%]
+tests/test_consumer.py::TestProcessMessage::test_missing_email_acked PASSED [ 16%]
+tests/test_consumer.py::TestProcessMessage::test_missing_username_acked PASSED [ 20%]
+tests/test_consumer.py::TestProcessMessage::test_empty_body_acked PASSED [ 23%]
+tests/test_consumer.py::TestProcessMessage::test_db_transient_error_nacked PASSED [ 26%]
+tests/test_consumer.py::TestProcessMessage::test_create_called_with_correct_args PASSED [ 30%]
+tests/test_user_routes.py::TestGetUserProfile::test_get_own_profile_200 PASSED [ 33%]
+tests/test_user_routes.py::TestGetUserProfile::test_get_profile_unauthenticated_401 PASSED [ 36%]
+tests/test_user_routes.py::TestGetUserProfile::test_get_other_users_profile_403 PASSED [ 40%]
+tests/test_user_routes.py::TestGetUserProfile::test_get_nonexistent_profile_404 PASSED [ 43%]
+tests/test_user_routes.py::TestUpdateUserProfile::test_update_full_name_200 PASSED [ 46%]
+tests/test_user_routes.py::TestUpdateUserProfile::test_patch_is_partial_other_fields_unchanged PASSED [ 50%]
+tests/test_user_routes.py::TestUpdateUserProfile::test_update_json_field PASSED [ 53%]
+tests/test_user_routes.py::TestUpdateUserProfile::test_update_other_users_profile_403 PASSED [ 56%]
+tests/test_user_routes.py::TestUpdateUserProfile::test_update_unauthenticated_401 PASSED [ 60%]
+tests/test_user_routes.py::TestUpdateUserProfile::test_update_nonexistent_profile_404 PASSED [ 63%]
+tests/test_user_routes.py::test_health_check PASSED                      [ 66%]
+tests/test_user_service.py::TestCreateProfileFromEvent::test_creates_profile_returns_true PASSED [ 70%]
+tests/test_user_service.py::TestCreateProfileFromEvent::test_profile_fields_stored_correctly PASSED [ 73%]
+tests/test_user_service.py::TestCreateProfileFromEvent::test_duplicate_event_returns_false PASSED [ 76%]
+tests/test_user_service.py::TestCreateProfileFromEvent::test_duplicate_does_not_create_second_row PASSED [ 80%]
+tests/test_user_service.py::TestGetProfile::test_returns_none_for_unknown_user_id PASSED [ 83%]
+tests/test_user_service.py::TestGetProfile::test_returns_profile_for_known_user_id PASSED [ 86%]
+tests/test_user_service.py::TestUpdateProfile::test_full_name_updated PASSED [ 90%]
+tests/test_user_service.py::TestUpdateProfile::test_partial_update_leaves_other_fields_unchanged PASSED [ 93%]
+tests/test_user_service.py::TestUpdateProfile::test_json_fields_stored PASSED [ 96%]
+tests/test_user_service.py::TestUpdateProfile::test_multiple_fields_updated_atomically PASSED [100%]
+=============================== warnings summary ===============================
+  /app/app/schemas/user_schema.py:7: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+tests/test_user_routes.py: 27 warnings
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+======================= 30 passed, 28 warnings in 0.67s ========================
+[0;32m✔ PASS[0m — user-service tests: ======================= 30 passed, 28 warnings in 0.67s ========================
+
+  [1;33m▷ Running tests for product-service...[0m
+tests/test_category_routes.py::TestListCategories::test_empty_list PASSED [  1%]
+tests/test_category_routes.py::TestListCategories::test_returns_active_categories PASSED [  3%]
+tests/test_category_routes.py::TestListCategories::test_inactive_categories_excluded PASSED [  5%]
+tests/test_category_routes.py::TestListCategories::test_ordered_by_display_order PASSED [  7%]
+tests/test_category_routes.py::TestGetCategory::test_get_existing_category_200 PASSED [  8%]
+tests/test_category_routes.py::TestGetCategory::test_get_nonexistent_category_404 PASSED [ 10%]
+tests/test_category_routes.py::TestCreateCategory::test_staff_can_create_201 PASSED [ 12%]
+tests/test_category_routes.py::TestCreateCategory::test_non_staff_forbidden_403 PASSED [ 14%]
+tests/test_category_routes.py::TestCreateCategory::test_unauthenticated_401 PASSED [ 16%]
+tests/test_category_routes.py::TestCreateCategory::test_missing_name_422 PASSED [ 17%]
+tests/test_category_routes.py::TestUpdateCategory::test_staff_can_patch PASSED [ 19%]
+tests/test_category_routes.py::TestUpdateCategory::test_patch_partial_leaves_other_fields PASSED [ 21%]
+tests/test_category_routes.py::TestUpdateCategory::test_patch_nonexistent_404 PASSED [ 23%]
+tests/test_category_routes.py::TestUpdateCategory::test_non_staff_patch_403 PASSED [ 25%]
+tests/test_category_routes.py::TestDeleteCategory::test_staff_can_delete_204 PASSED [ 26%]
+tests/test_category_routes.py::TestDeleteCategory::test_delete_removes_category PASSED [ 28%]
+tests/test_category_routes.py::TestDeleteCategory::test_delete_nonexistent_404 PASSED [ 30%]
+tests/test_category_routes.py::TestDeleteCategory::test_non_staff_delete_403 PASSED [ 32%]
+tests/test_product_routes.py::TestListProducts::test_empty_list PASSED   [ 33%]
+tests/test_product_routes.py::TestListProducts::test_returns_available_products PASSED [ 35%]
+tests/test_product_routes.py::TestListProducts::test_unavailable_products_excluded PASSED [ 37%]
+tests/test_product_routes.py::TestListProducts::test_filter_by_category_id PASSED [ 39%]
+tests/test_product_routes.py::TestListProducts::test_response_includes_variants PASSED [ 41%]
+tests/test_product_routes.py::TestGetProduct::test_get_existing_product_200 PASSED [ 42%]
+tests/test_product_routes.py::TestGetProduct::test_get_product_includes_variants PASSED [ 44%]
+tests/test_product_routes.py::TestGetProduct::test_get_nonexistent_product_404 PASSED [ 46%]
+tests/test_product_routes.py::TestCreateProduct::test_staff_creates_product_with_variants_201 PASSED [ 48%]
+tests/test_product_routes.py::TestCreateProduct::test_non_staff_forbidden_403 PASSED [ 50%]
+tests/test_product_routes.py::TestCreateProduct::test_unauthenticated_401 PASSED [ 51%]
+tests/test_product_routes.py::TestCreateProduct::test_invalid_size_enum_422 PASSED [ 53%]
+tests/test_product_routes.py::TestCreateProduct::test_zero_price_rejected_422 PASSED [ 55%]
+tests/test_product_routes.py::TestCreateProduct::test_missing_variants_422 PASSED [ 57%]
+tests/test_product_routes.py::TestUpdateProduct::test_staff_patch_name PASSED [ 58%]
+tests/test_product_routes.py::TestUpdateProduct::test_patch_availability PASSED [ 60%]
+tests/test_product_routes.py::TestUpdateProduct::test_patch_nonexistent_404 PASSED [ 62%]
+tests/test_product_routes.py::TestUpdateProduct::test_non_staff_patch_403 PASSED [ 64%]
+tests/test_product_routes.py::TestDeleteProduct::test_staff_delete_204 PASSED [ 66%]
+tests/test_product_routes.py::TestDeleteProduct::test_delete_removes_product PASSED [ 67%]
+tests/test_product_routes.py::TestDeleteProduct::test_delete_cascades_to_variants PASSED [ 69%]
+tests/test_product_routes.py::TestDeleteProduct::test_delete_nonexistent_404 PASSED [ 71%]
+tests/test_product_routes.py::TestDeleteProduct::test_non_staff_delete_403 PASSED [ 73%]
+tests/test_product_routes.py::test_health PASSED                         [ 75%]
+tests/test_product_service.py::TestCategoryService::test_create_and_retrieve PASSED [ 76%]
+tests/test_product_service.py::TestCategoryService::test_list_returns_only_active PASSED [ 78%]
+tests/test_product_service.py::TestCategoryService::test_list_without_filter_includes_inactive PASSED [ 80%]
+tests/test_product_service.py::TestCategoryService::test_list_ordered_by_display_order PASSED [ 82%]
+tests/test_product_service.py::TestCategoryService::test_update_category PASSED [ 83%]
+tests/test_product_service.py::TestCategoryService::test_delete_category PASSED [ 85%]
+tests/test_product_service.py::TestCategoryService::test_get_nonexistent_returns_none PASSED [ 87%]
+tests/test_product_service.py::TestProductService::test_create_product_with_variants PASSED [ 89%]
+tests/test_product_service.py::TestProductService::test_list_returns_available_only PASSED [ 91%]
+tests/test_product_service.py::TestProductService::test_list_filter_by_category PASSED [ 92%]
+tests/test_product_service.py::TestProductService::test_get_product_includes_variants PASSED [ 94%]
+tests/test_product_service.py::TestProductService::test_get_nonexistent_returns_none PASSED [ 96%]
+tests/test_product_service.py::TestProductService::test_update_product PASSED [ 98%]
+tests/test_product_service.py::TestProductService::test_delete_product PASSED [100%]
+=============================== warnings summary ===============================
+  /app/app/schemas/product_schema.py:29: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+  /app/app/schemas/product_schema.py:52: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+  /app/app/schemas/product_schema.py:79: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+tests/test_category_routes.py: 66 warnings
+tests/test_product_routes.py: 141 warnings
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+======================= 56 passed, 210 warnings in 3.01s =======================
+[0;32m✔ PASS[0m — product-service tests: ======================= 56 passed, 210 warnings in 3.01s =======================
+
+  [1;33m▷ Running tests for order-service...[0m
+tests/test_cart_service.py::TestGetActiveCart::test_returns_none_when_no_cart_exists PASSED [  1%]
+tests/test_cart_service.py::TestGetActiveCart::test_returns_active_cart_for_user PASSED [  3%]
+tests/test_cart_service.py::TestGetActiveCart::test_does_not_return_checked_out_cart PASSED [  4%]
+tests/test_cart_service.py::TestGetActiveCart::test_returns_only_the_requesting_users_cart PASSED [  6%]
+tests/test_cart_service.py::TestGetOrCreateCart::test_creates_cart_when_none_exists PASSED [  8%]
+tests/test_cart_service.py::TestGetOrCreateCart::test_returns_existing_cart_when_one_exists PASSED [  9%]
+tests/test_cart_service.py::TestGetOrCreateCart::test_new_cart_has_empty_items PASSED [ 11%]
+tests/test_cart_service.py::TestAddItem::test_adds_item_to_cart PASSED   [ 12%]
+tests/test_cart_service.py::TestAddItem::test_duplicate_variant_merges_quantity PASSED [ 14%]
+tests/test_cart_service.py::TestAddItem::test_different_variants_create_separate_rows PASSED [ 16%]
+tests/test_cart_service.py::TestRemoveItem::test_removes_existing_item_returns_true PASSED [ 17%]
+tests/test_cart_service.py::TestRemoveItem::test_removed_item_no_longer_in_cart PASSED [ 19%]
+tests/test_cart_service.py::TestRemoveItem::test_removing_nonexistent_item_returns_false PASSED [ 20%]
+tests/test_cart_service.py::TestRemoveItem::test_cannot_remove_item_belonging_to_another_cart PASSED [ 22%]
+tests/test_cart_service.py::TestMarkCheckedOut::test_marks_cart_as_checked_out PASSED [ 24%]
+tests/test_order_routes.py::TestGetCart::test_get_cart_creates_new_cart PASSED [ 25%]
+tests/test_order_routes.py::TestGetCart::test_get_cart_returns_existing_cart PASSED [ 27%]
+tests/test_order_routes.py::TestGetCart::test_get_cart_unauthenticated_401 PASSED [ 29%]
+tests/test_order_routes.py::TestAddToCart::test_add_item_returns_201 PASSED [ 30%]
+tests/test_order_routes.py::TestAddToCart::test_add_item_unauthenticated_401 PASSED [ 32%]
+tests/test_order_routes.py::TestAddToCart::test_add_item_missing_required_field_422 PASSED [ 33%]
+tests/test_order_routes.py::TestAddToCart::test_add_item_negative_price_422 PASSED [ 35%]
+tests/test_order_routes.py::TestAddToCart::test_add_item_zero_quantity_422 PASSED [ 37%]
+tests/test_order_routes.py::TestRemoveFromCart::test_remove_item_returns_204 PASSED [ 38%]
+tests/test_order_routes.py::TestRemoveFromCart::test_remove_nonexistent_item_404 PASSED [ 40%]
+tests/test_order_routes.py::TestRemoveFromCart::test_remove_item_unauthenticated_401 PASSED [ 41%]
+tests/test_order_routes.py::TestRemoveFromCart::test_remove_item_invalid_uuid_422 PASSED [ 43%]
+tests/test_order_routes.py::TestCheckout::test_checkout_returns_201_confirmed_order PASSED [ 45%]
+tests/test_order_routes.py::TestCheckout::test_checkout_unauthenticated_401 PASSED [ 46%]
+tests/test_order_routes.py::TestCheckout::test_checkout_empty_cart_400 PASSED [ 48%]
+tests/test_order_routes.py::TestCheckout::test_checkout_unavailable_product_400 PASSED [ 50%]
+tests/test_order_routes.py::TestCheckout::test_checkout_product_service_down_503 PASSED [ 51%]
+tests/test_order_routes.py::TestCheckout::test_checkout_includes_price_changes_in_response PASSED [ 53%]
+tests/test_order_routes.py::TestListOrders::test_list_orders_returns_200 PASSED [ 54%]
+tests/test_order_routes.py::TestListOrders::test_list_orders_empty_for_new_user PASSED [ 56%]
+tests/test_order_routes.py::TestListOrders::test_list_orders_unauthenticated_401 PASSED [ 58%]
+tests/test_order_routes.py::TestListOrders::test_list_orders_isolated_between_users PASSED [ 59%]
+tests/test_order_routes.py::TestGetOrder::test_get_own_order_200 PASSED  [ 61%]
+tests/test_order_routes.py::TestGetOrder::test_get_other_users_order_404 PASSED [ 62%]
+tests/test_order_routes.py::TestGetOrder::test_get_nonexistent_order_404 PASSED [ 64%]
+tests/test_order_routes.py::TestGetOrder::test_get_order_unauthenticated_401 PASSED [ 66%]
+tests/test_order_routes.py::TestGetOrder::test_get_order_invalid_uuid_422 PASSED [ 67%]
+tests/test_order_routes.py::test_health_check PASSED                     [ 69%]
+tests/test_order_service.py::TestCheckoutHappyPath::test_checkout_creates_confirmed_order PASSED [ 70%]
+tests/test_order_service.py::TestCheckoutHappyPath::test_checkout_locks_price_from_product_service PASSED [ 72%]
+tests/test_order_service.py::TestCheckoutHappyPath::test_checkout_records_price_change PASSED [ 74%]
+tests/test_order_service.py::TestCheckoutHappyPath::test_checkout_no_price_changes_when_price_matches PASSED [ 75%]
+tests/test_order_service.py::TestCheckoutHappyPath::test_checkout_calculates_correct_total PASSED [ 77%]
+tests/test_order_service.py::TestCheckoutHappyPath::test_checkout_creates_order_items PASSED [ 79%]
+tests/test_order_service.py::TestCheckoutHappyPath::test_checkout_marks_cart_as_checked_out PASSED [ 80%]
+tests/test_order_service.py::TestCheckoutHappyPath::test_checkout_publishes_order_placed_event PASSED [ 82%]
+tests/test_order_service.py::TestCheckoutFailures::test_empty_cart_raises_checkout_error PASSED [ 83%]
+tests/test_order_service.py::TestCheckoutFailures::test_unavailable_product_raises_checkout_error PASSED [ 85%]
+tests/test_order_service.py::TestCheckoutFailures::test_out_of_stock_variant_raises_checkout_error PASSED [ 87%]
+tests/test_order_service.py::TestCheckoutFailures::test_product_service_unreachable_raises_checkout_error PASSED [ 88%]
+tests/test_order_service.py::TestCheckoutFailures::test_failed_checkout_does_not_create_order PASSED [ 90%]
+tests/test_order_service.py::TestCheckoutFailures::test_failed_checkout_leaves_cart_active PASSED [ 91%]
+tests/test_order_service.py::TestGetAndListOrders::test_get_order_returns_own_order PASSED [ 93%]
+tests/test_order_service.py::TestGetAndListOrders::test_get_order_returns_none_for_other_users_order PASSED [ 95%]
+tests/test_order_service.py::TestGetAndListOrders::test_get_order_returns_none_for_nonexistent_order PASSED [ 96%]
+tests/test_order_service.py::TestGetAndListOrders::test_list_orders_returns_only_own_orders PASSED [ 98%]
+tests/test_order_service.py::TestGetAndListOrders::test_list_orders_returns_empty_for_new_user PASSED [100%]
+=============================== warnings summary ===============================
+  /app/app/schemas/order_schema.py:18: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+  /app/app/schemas/order_schema.py:32: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+  /app/app/schemas/order_schema.py:51: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+  /app/app/schemas/order_schema.py:65: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+tests/test_order_routes.py: 23 warnings
+tests/test_order_routes.py: 23 warnings
+tests/test_order_routes.py: 23 warnings
+tests/test_order_routes.py: 114 warnings
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+======================= 62 passed, 197 warnings in 5.73s =======================
+[0;32m✔ PASS[0m — order-service tests: ======================= 62 passed, 197 warnings in 5.73s =======================
+
+  [1;33m▷ Running tests for payment-service...[0m
+tests/test_payment_routes.py::TestInitializePayment::test_initialize_returns_201 PASSED [  2%]
+tests/test_payment_routes.py::TestInitializePayment::test_initialize_returns_authorization_url PASSED [  4%]
+tests/test_payment_routes.py::TestInitializePayment::test_initialize_returns_reference PASSED [  6%]
+tests/test_payment_routes.py::TestInitializePayment::test_initialize_missing_email_422 PASSED [  8%]
+tests/test_payment_routes.py::TestInitializePayment::test_initialize_missing_amount_422 PASSED [ 11%]
+tests/test_payment_routes.py::TestInitializePayment::test_initialize_paystack_error_returns_502 PASSED [ 13%]
+tests/test_payment_routes.py::TestWebhookSecurity::test_webhook_without_signature_returns_401 PASSED [ 15%]
+tests/test_payment_routes.py::TestWebhookSecurity::test_webhook_with_wrong_signature_returns_401 PASSED [ 17%]
+tests/test_payment_routes.py::TestWebhookSecurity::test_webhook_with_correct_signature_returns_200 PASSED [ 20%]
+tests/test_payment_routes.py::TestWebhookSecurity::test_tampered_body_with_original_signature_returns_401 PASSED [ 22%]
+tests/test_payment_routes.py::TestWebhookProcessing::test_charge_success_updates_payment_to_succeeded PASSED [ 24%]
+tests/test_payment_routes.py::TestWebhookProcessing::test_charge_failure_updates_payment_to_failed PASSED [ 26%]
+tests/test_payment_routes.py::TestWebhookProcessing::test_unknown_event_returns_200_and_is_ignored PASSED [ 28%]
+tests/test_payment_routes.py::TestWebhookProcessing::test_webhook_always_returns_200_even_on_internal_error PASSED [ 31%]
+tests/test_payment_routes.py::TestGetPaymentByOrder::test_returns_200_for_existing_payment PASSED [ 33%]
+tests/test_payment_routes.py::TestGetPaymentByOrder::test_returns_404_for_missing_order PASSED [ 35%]
+tests/test_payment_routes.py::test_health_check PASSED                   [ 37%]
+tests/test_payment_service.py::TestPaymentServiceInitialize::test_creates_pending_payment_record PASSED [ 40%]
+tests/test_payment_service.py::TestPaymentServiceInitialize::test_stores_paystack_reference PASSED [ 42%]
+tests/test_payment_service.py::TestPaymentServiceInitialize::test_stores_authorization_url PASSED [ 44%]
+tests/test_payment_service.py::TestPaymentServiceInitialize::test_raises_paystack_error_on_api_failure PASSED [ 46%]
+tests/test_payment_service.py::TestPaymentServiceInitialize::test_does_not_persist_on_paystack_failure PASSED [ 48%]
+tests/test_payment_service.py::TestHandleWebhookSuccess::test_updates_payment_status_to_succeeded PASSED [ 51%]
+tests/test_payment_service.py::TestHandleWebhookSuccess::test_re_verifies_with_paystack_api PASSED [ 53%]
+tests/test_payment_service.py::TestHandleWebhookSuccess::test_calls_order_service_with_paid_status PASSED [ 55%]
+tests/test_payment_service.py::TestHandleWebhookSuccess::test_publishes_payment_succeeded_event PASSED [ 57%]
+tests/test_payment_service.py::TestHandleWebhookSuccess::test_does_not_update_if_verification_returns_non_success PASSED [ 60%]
+tests/test_payment_service.py::TestHandleWebhookSuccess::test_does_not_update_if_verification_raises PASSED [ 62%]
+tests/test_payment_service.py::TestHandleWebhookSuccess::test_ignores_unknown_reference PASSED [ 64%]
+tests/test_payment_service.py::TestHandleWebhookSuccess::test_ignores_missing_reference PASSED [ 66%]
+tests/test_payment_service.py::TestHandleWebhookFailure::test_updates_payment_status_to_failed PASSED [ 68%]
+tests/test_payment_service.py::TestHandleWebhookFailure::test_calls_order_service_with_cancelled_status PASSED [ 71%]
+tests/test_payment_service.py::TestHandleWebhookFailure::test_publishes_payment_failed_event PASSED [ 73%]
+tests/test_payment_service.py::TestHandleWebhookFailure::test_does_not_call_verify_on_failure PASSED [ 75%]
+tests/test_payment_service.py::TestHandleWebhookUnhandledEvents::test_ignores_unknown_event_types PASSED [ 77%]
+tests/test_payment_service.py::TestGetPaymentByOrder::test_returns_payment_for_existing_order PASSED [ 80%]
+tests/test_payment_service.py::TestGetPaymentByOrder::test_returns_none_for_unknown_order PASSED [ 82%]
+tests/test_webhook_security.py::TestVerifyWebhookSignature::test_valid_signature_returns_true PASSED [ 84%]
+tests/test_webhook_security.py::TestVerifyWebhookSignature::test_wrong_signature_returns_false PASSED [ 86%]
+tests/test_webhook_security.py::TestVerifyWebhookSignature::test_tampered_body_returns_false PASSED [ 88%]
+tests/test_webhook_security.py::TestVerifyWebhookSignature::test_empty_body_with_correct_signature_returns_true PASSED [ 91%]
+tests/test_webhook_security.py::TestVerifyWebhookSignature::test_empty_signature_returns_false PASSED [ 93%]
+tests/test_webhook_security.py::TestVerifyWebhookSignature::test_signature_from_different_secret_returns_false PASSED [ 95%]
+tests/test_webhook_security.py::TestVerifyWebhookSignature::test_is_constant_time_comparison PASSED [ 97%]
+tests/test_webhook_security.py::TestVerifyWebhookSignature::test_whitespace_change_in_body_invalidates_signature PASSED [100%]
+=============================== warnings summary ===============================
+  /app/app/schemas/payment_schema.py:22: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+  /app/app/schemas/payment_schema.py:35: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+======================== 45 passed, 2 warnings in 1.34s ========================
+[0;32m✔ PASS[0m — payment-service tests: ======================== 45 passed, 2 warnings in 1.34s ========================
+
+[0;34m[1m▶ Phase 0 — Health Checks[0m
+[0;32m✔ PASS[0m — auth-service is up
+[0;32m✔ PASS[0m — user-service is up
+[0;32m✔ PASS[0m — product-service is up
+[0;32m✔ PASS[0m — order-service is up
+
+[0;34m[1m▶ Phase 1 — User Registration (auth-service)[0m
+  [1;33mCleaning up any previous e2e test users with this email (allows clean re-runs)[0m
+  [1;33mRegistering test user: e2e_user_1782816767[0m
+[0;32m✔ PASS[0m — User registered — verification email sent to uchejudennodim@gmail.com
+  [1;33mAttempting login before email verification (should be blocked)[0m
+[0;32m✔ PASS[0m — Unverified login correctly blocked: "Please verify your email before logging in"
+  [1;33mManually activating test user (simulating email click for automation)[0m
+[0;32m✔ PASS[0m — Test user activated (email verification simulated)
+
+[0;34m[1m▶ Phase 2 — User Login (auth-service)[0m
+[0;32m✔ PASS[0m — Login successful — access token received
+  [1;33muser_id from JWT: 019f1829-951c-76e4-888a-dd7efca49c5b[0m
+  [1;33mTesting token refresh[0m
+[0;32m✔ PASS[0m — Token refresh working
+
+[0;34m[1m▶ Phase 3 — User Profile (user-service)[0m
+  [1;33mWaiting 6s for user-service-worker to consume user.registered event...[0m
+[0;32m✔ PASS[0m — Profile created by event-driven worker and readable via user-service
+  [1;33mUpdating profile (PATCH)[0m
+[0;32m✔ PASS[0m — Profile update working (PATCH, partial update only)
+  [1;33mTesting cross-user authorization (should be 403)[0m
+[0;32m✔ PASS[0m — Authorization boundary enforced (cross-user access blocked)
+
+[0;34m[1m▶ Phase 4 — Browse Products (product-service)[0m
+  [1;33mFetching categories (public — no auth required)[0m
+[0;32m✔ PASS[0m — Categories endpoint public and responding (2 categories)
+  [1;33mFetching products (public — no auth required)[0m
+[0;32m✔ PASS[0m — Products endpoint public and responding (2 products)
+  [1;33mSelected: Margherita (small) @ $8.99[0m
+[0;32m✔ PASS[0m — Product and variant selected for cart
+  [1;33mTesting staff-only write protection (no auth → 401)[0m
+[0;32m✔ PASS[0m — Unauthenticated write correctly blocked (401)
+  [1;33mTesting staff-only write protection (non-staff token → 403)[0m
+[0;32m✔ PASS[0m — Non-staff write correctly blocked (403)
+
+[0;34m[1m▶ Phase 5 — Staff Login (auth-service)[0m
+[0;32m✔ PASS[0m — Staff login successful — is_staff confirmed in JWT
+
+[0;34m[1m▶ Phase 6 — Cart Management (order-service)[0m
+  [1;33mCreating/fetching cart for test user[0m
+[0;32m✔ PASS[0m — Cart created: 019f1829-beb8-7ab5-ade0-ef55bbb44d07
+  [1;33mAdding Margherita (small) × 2 to cart[0m
+[0;32m✔ PASS[0m — Item added to cart
+  [1;33mVerifying cart has the item in DB (product-service will confirm price at checkout)[0m
+[0;32m✔ PASS[0m — Cart state verified
+
+[0;34m[1m▶ Phase 7 — Checkout[0m
+  [1;33mChecking out — order-service will verify prices against product-service[0m
+[0;32m✔ PASS[0m — Order created with pending_payment status: 019f1829-bf7f-7a90-9b57-bebf79194cf8
+  [1;33mTotal: $17.98 | Items: 1 | Price changes: 0[0m
+  [1;33mPaystack authorization URL: https://checkout.paystack.com/97tb50fupkejvhm[0m
+  [1;33mPayment reference: PIZZA-BED45BF55A8D48AD[0m
+
+[0;34m[1m▶ Phase 7b — Payment Simulation (signed webhook injection)[0m
+  [1;33mComputing HMAC-SHA512 signature for webhook payload...[0m
+[0;32m✔ PASS[0m — Webhook signature computed
+  [1;33mMocking Paystack verify_transaction response and posting webhook...[0m
+[0;32m✔ PASS[0m — Webhook accepted by payment-service (200 OK)
+  [1;33mWaiting 3s for payment processing and order status update...[0m
+[0;31m✗ FAIL[0m — Payment record status should be 'succeeded', got 'pending'
+[0;31mAborting test run.[0m

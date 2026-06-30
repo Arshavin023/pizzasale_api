@@ -1,0 +1,2187 @@
+===== order-service/alembic/env.py =====
+import sys
+import os
+
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+
+from sqlalchemy import pool, create_engine
+from alembic import context
+
+from app.db.base import Base
+from app.models import cart, order
+
+config = context.config
+
+DATABASE_URL = os.getenv("DATABASE_URL") or config.get_main_option("sqlalchemy.url")
+if not DATABASE_URL:
+    raise RuntimeError("DATABASE_URL is not set for Alembic")
+
+SYNC_DATABASE_URL = DATABASE_URL.replace("+asyncpg", "")
+config.set_main_option("sqlalchemy.url", SYNC_DATABASE_URL)
+
+target_metadata = Base.metadata
+
+
+def run_migrations_offline():
+    context.configure(
+        url=SYNC_DATABASE_URL,
+        target_metadata=target_metadata,
+        literal_binds=True,
+        dialect_opts={"paramstyle": "named"},
+        compare_type=True,
+    )
+    with context.begin_transaction():
+        context.run_migrations()
+
+
+def run_migrations_online():
+    connectable = create_engine(
+        SYNC_DATABASE_URL,
+        poolclass=pool.NullPool,
+        pool_pre_ping=True,
+    )
+    with connectable.connect() as connection:
+        context.configure(
+            connection=connection,
+            target_metadata=target_metadata,
+            compare_type=True,
+        )
+        with context.begin_transaction():
+            context.run_migrations()
+
+
+if context.is_offline_mode():
+    run_migrations_offline()
+else:
+    run_migrations_online()
+
+===== order-service/alembic/versions/o1p2q3r4s5t6_init_order_tables.py =====
+"""init order tables
+
+Revision ID: o1p2q3r4s5t6
+Revises:
+Create Date: 2026-06-21 15:00:00.000000
+
+"""
+from typing import Sequence, Union
+from alembic import op
+import sqlalchemy as sa
+from sqlalchemy.dialects import postgresql
+
+revision: str = 'o1p2q3r4s5t6'
+down_revision: Union[str, None] = None
+branch_labels: Union[str, Sequence[str], None] = None
+depends_on: Union[str, Sequence[str], None] = None
+
+
+def upgrade() -> None:
+    cart_status = postgresql.ENUM('active', 'checked_out', name='cartstatus')
+    cart_status.create(op.get_bind())
+
+    order_status = postgresql.ENUM(
+        'draft', 'confirmed', 'paid', 'shipped', 'delivered', 'cancelled',
+        name='orderstatus'
+    )
+    order_status.create(op.get_bind())
+
+    op.create_table('carts',
+        sa.Column('id', postgresql.UUID(as_uuid=True), nullable=False),
+        sa.Column('user_id', postgresql.UUID(as_uuid=True), nullable=False),
+        sa.Column('status', postgresql.ENUM('active', 'checked_out', name='cartstatus', create_type=False), nullable=False),
+        sa.Column('created_at', sa.DateTime(), nullable=True),
+        sa.Column('updated_at', sa.DateTime(), nullable=True),
+        sa.PrimaryKeyConstraint('id'),
+    )
+    op.create_index('ix_carts_user_id', 'carts', ['user_id'])
+
+    op.create_table('cart_items',
+        sa.Column('id', postgresql.UUID(as_uuid=True), nullable=False),
+        sa.Column('cart_id', postgresql.UUID(as_uuid=True), nullable=False),
+        sa.Column('product_id', postgresql.UUID(as_uuid=True), nullable=False),
+        sa.Column('variant_id', postgresql.UUID(as_uuid=True), nullable=False),
+        sa.Column('product_name', sa.String(length=150), nullable=False),
+        sa.Column('size', sa.String(length=20), nullable=False),
+        sa.Column('unit_price', sa.Numeric(precision=10, scale=2), nullable=False),
+        sa.Column('quantity', sa.Integer(), nullable=False),
+        sa.Column('added_at', sa.DateTime(), nullable=True),
+        sa.PrimaryKeyConstraint('id'),
+        sa.ForeignKeyConstraint(['cart_id'], ['carts.id']),
+    )
+    op.create_index('ix_cart_items_cart_id', 'cart_items', ['cart_id'])
+
+    op.create_table('orders',
+        sa.Column('id', postgresql.UUID(as_uuid=True), nullable=False),
+        sa.Column('user_id', postgresql.UUID(as_uuid=True), nullable=False),
+        sa.Column('status', postgresql.ENUM('draft', 'confirmed', 'paid', 'shipped', 'delivered', 'cancelled', name='orderstatus', create_type=False), nullable=False),
+        sa.Column('total_amount', sa.Numeric(precision=10, scale=2), nullable=False),
+        sa.Column('created_at', sa.DateTime(), nullable=True),
+        sa.Column('updated_at', sa.DateTime(), nullable=True),
+        sa.PrimaryKeyConstraint('id'),
+    )
+    op.create_index('ix_orders_user_id', 'orders', ['user_id'])
+
+    op.create_table('order_items',
+        sa.Column('id', postgresql.UUID(as_uuid=True), nullable=False),
+        sa.Column('order_id', postgresql.UUID(as_uuid=True), nullable=False),
+        sa.Column('product_id', postgresql.UUID(as_uuid=True), nullable=False),
+        sa.Column('variant_id', postgresql.UUID(as_uuid=True), nullable=False),
+        sa.Column('product_name', sa.String(length=150), nullable=False),
+        sa.Column('size', sa.String(length=20), nullable=False),
+        sa.Column('unit_price', sa.Numeric(precision=10, scale=2), nullable=False),
+        sa.Column('quantity', sa.Integer(), nullable=False),
+        sa.Column('subtotal', sa.Numeric(precision=10, scale=2), nullable=False),
+        sa.PrimaryKeyConstraint('id'),
+        sa.ForeignKeyConstraint(['order_id'], ['orders.id']),
+    )
+    op.create_index('ix_order_items_order_id', 'order_items', ['order_id'])
+
+
+def downgrade() -> None:
+    op.drop_index('ix_order_items_order_id', 'order_items')
+    op.drop_table('order_items')
+    op.drop_index('ix_orders_user_id', 'orders')
+    op.drop_table('orders')
+    op.drop_index('ix_cart_items_cart_id', 'cart_items')
+    op.drop_table('cart_items')
+    op.drop_index('ix_carts_user_id', 'carts')
+    op.drop_table('carts')
+    op.execute('DROP TYPE orderstatus')
+    op.execute('DROP TYPE cartstatus')
+
+===== order-service/app/api/order_routes.py =====
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.ext.asyncio import AsyncSession
+from uuid import UUID
+
+from app.db.session import get_db
+from app.core.auth import get_current_user_id
+from app.schemas.order_schema import (
+    CartItemAdd, CartResponse, OrderResponse
+)
+from app.services.cart_service import CartService
+from app.services.order_service import OrderService, CheckoutError
+from app.utils.product_client import ProductServiceError
+
+router = APIRouter(tags=["Orders"])
+
+
+def _parse_uuid(value: str, field: str = "id") -> UUID:
+    """Cast a path parameter string to UUID, returning 422 on malformed input."""
+    try:
+        return UUID(value)
+    except ValueError:
+        raise HTTPException(status_code=422, detail=f"Invalid {field} format")
+
+
+# ─── Cart endpoints ───────────────────────────────────────────────
+
+@router.get("/cart", response_model=CartResponse)
+async def get_cart(
+    user_id: UUID = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db),
+):
+    """Get or create the active cart for the current user."""
+    cart = await CartService.get_or_create_cart(db, user_id)
+    return cart
+
+
+@router.post("/cart/items", response_model=CartResponse, status_code=201)
+async def add_to_cart(
+    item: CartItemAdd,
+    user_id: UUID = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Add an item to the cart. The client is responsible for providing
+    correct product/variant details (name, size, price) since it already
+    fetched them from product-service when the user browsed. Prices are
+    re-verified against product-service at checkout.
+    """
+    cart = await CartService.get_or_create_cart(db, user_id)
+    await CartService.add_item(
+        db,
+        cart,
+        product_id=str(item.product_id),
+        variant_id=str(item.variant_id),
+        product_name=item.product_name,
+        size=item.size,
+        unit_price=item.unit_price,
+        quantity=item.quantity,
+    )
+    updated_cart = await CartService.get_active_cart(db, user_id)
+    return updated_cart
+
+
+@router.delete("/cart/items/{item_id}", status_code=204)
+async def remove_from_cart(
+    item_id: str,
+    user_id: UUID = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db),
+):
+    # item_id comes in as a string path param — cast explicitly
+    uid = _parse_uuid(item_id, "item_id")
+    cart = await CartService.get_active_cart(db, user_id)
+    if not cart:
+        raise HTTPException(status_code=404, detail="No active cart found")
+    removed = await CartService.remove_item(db, cart, uid)
+    if not removed:
+        raise HTTPException(status_code=404, detail="Item not found in cart")
+
+
+# ─── Checkout ─────────────────────────────────────────────────────
+
+@router.post("/checkout", response_model=OrderResponse, status_code=201)
+async def checkout(
+    user_id: UUID = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Verify all cart items against product-service, lock prices,
+    create an order, and publish order.placed event.
+    """
+    cart = await CartService.get_active_cart(db, user_id)
+    if not cart:
+        raise HTTPException(status_code=400, detail="No active cart to checkout")
+    if not cart.items:
+        raise HTTPException(status_code=400, detail="Cart is empty")
+
+    try:
+        order = await OrderService.checkout(db, cart, user_id)
+    except CheckoutError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except ProductServiceError as e:
+        raise HTTPException(status_code=503, detail=str(e))
+
+    return OrderResponse(
+        id=order.id,
+        status=order.status,
+        total_amount=order.total_amount,
+        items=order.items,
+        price_changes=getattr(order, "_price_changes", []),
+        created_at=order.created_at,
+        updated_at=order.updated_at,
+    )
+
+
+# ─── Order history ────────────────────────────────────────────────
+
+@router.get("/orders", response_model=list[OrderResponse])
+async def list_orders(
+    user_id: UUID = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db),
+):
+    orders = await OrderService.list_orders(db, user_id)
+    return [
+        OrderResponse(
+            id=o.id,
+            status=o.status,
+            total_amount=o.total_amount,
+            items=o.items,
+            price_changes=[],
+            created_at=o.created_at,
+            updated_at=o.updated_at,
+        )
+        for o in orders
+    ]
+
+
+@router.get("/orders/{order_id}", response_model=OrderResponse)
+async def get_order(
+    order_id: str,
+    user_id: UUID = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db),
+):
+    # order_id comes in as a string path param — cast explicitly
+    uid = _parse_uuid(order_id, "order_id")
+    order = await OrderService.get_order(db, uid, user_id)
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    return OrderResponse(
+        id=order.id,
+        status=order.status,
+        total_amount=order.total_amount,
+        items=order.items,
+        price_changes=[],
+        created_at=order.created_at,
+        updated_at=order.updated_at,
+    )
+
+===== order-service/app/core/auth.py =====
+from fastapi import Depends
+from fastapi_jwt_auth2 import AuthJWT
+from uuid import UUID
+
+
+def get_current_user_id(Authorize: AuthJWT = Depends()) -> UUID:
+    """
+    Verifies the JWT and extracts the user_id claim.
+    Returns the user_id so route handlers can scope operations
+    to the authenticated user — a user can only see/modify their
+    own cart and orders.
+
+    Note: user_id is stored as a custom claim since auth-service
+    currently uses username as the JWT subject. See the known
+    limitation in the README — embedding user_id directly in
+    claims would be more direct.
+    """
+    Authorize.jwt_required()
+    claims = Authorize.get_raw_jwt()
+    user_id = claims.get("user_id")
+    if not user_id:
+        # Fallback: if user_id claim isn't present yet (auth-service
+        # doesn't embed it today), raise a clear error rather than
+        # silently using None as the user identifier.
+        from fastapi import HTTPException
+        raise HTTPException(
+            status_code=422,
+            detail="JWT is missing user_id claim. auth-service must be updated to embed user_id."
+        )
+    return UUID(user_id)
+
+===== order-service/app/core/jwt_config.py =====
+import os
+from pydantic import BaseModel
+from fastapi_jwt_auth2 import AuthJWT
+
+JWT_SECRET = os.getenv("JWT_SECRET")
+if not JWT_SECRET:
+    raise RuntimeError("JWT_SECRET is not set")
+
+class Settings(BaseModel):
+    authjwt_secret_key: str = JWT_SECRET
+
+@AuthJWT.load_config
+def get_config():
+    return Settings()
+
+===== order-service/app/db/base.py =====
+from sqlalchemy.orm import declarative_base
+
+Base = declarative_base()
+
+===== order-service/app/db/session.py =====
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
+from sqlalchemy.orm import sessionmaker
+import os
+
+DATABASE_URL = os.getenv("DATABASE_URL")
+if not DATABASE_URL:
+    raise RuntimeError("DATABASE_URL is missing inside container")
+
+engine = create_async_engine(
+    DATABASE_URL,
+    echo=False,
+    pool_size=10,
+    max_overflow=20,
+    pool_pre_ping=True,
+    pool_recycle=300
+)
+
+AsyncSessionLocal = sessionmaker(
+    bind=engine,
+    class_=AsyncSession,
+    expire_on_commit=False
+)
+
+async def get_db():
+    async with AsyncSessionLocal() as session:
+        yield session
+
+===== order-service/app/main.py =====
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
+from fastapi_jwt_auth2.exceptions import AuthJWTException
+
+from app.api.order_routes import router as order_router
+from app.core import jwt_config  # noqa: F401
+
+app = FastAPI(title="Order Service")
+app.include_router(order_router)
+
+
+@app.exception_handler(AuthJWTException)
+def authjwt_exception_handler(request: Request, exc: AuthJWTException):
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"detail": exc.message},
+    )
+
+
+@app.get("/health")
+async def health():
+    return {"status": "ok"}
+
+===== order-service/app/models/cart.py =====
+import uuid6
+import enum
+from sqlalchemy import Column, String, Integer, Numeric, DateTime, ForeignKey, Enum, func
+from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.orm import relationship
+from app.db.base import Base
+
+
+class CartStatus(str, enum.Enum):
+    active = "active"
+    checked_out = "checked_out"
+
+
+class Cart(Base):
+    __tablename__ = "carts"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=lambda: uuid6.uuid7())
+    user_id = Column(UUID(as_uuid=True), nullable=False, index=True)
+    status = Column(Enum(CartStatus), nullable=False, default=CartStatus.active)
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+
+    items = relationship("CartItem", back_populates="cart", cascade="all, delete-orphan")
+
+
+class CartItem(Base):
+    __tablename__ = "cart_items"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=lambda: uuid6.uuid7())
+    cart_id = Column(UUID(as_uuid=True), ForeignKey("carts.id"), nullable=False, index=True)
+
+    # Cross-service references — no FK constraints since product_service_db
+    # is a separate database entirely.
+    product_id = Column(UUID(as_uuid=True), nullable=False)
+    variant_id = Column(UUID(as_uuid=True), nullable=False)
+
+    # Price/name snapshots at add time — re-verified at checkout
+    product_name = Column(String(150), nullable=False)
+    size = Column(String(20), nullable=False)
+    unit_price = Column(Numeric(10, 2), nullable=False)
+
+    quantity = Column(Integer, nullable=False, default=1)
+    added_at = Column(DateTime, default=func.now())
+
+    cart = relationship("Cart", back_populates="items")
+
+===== order-service/app/models/__init__.py =====
+from app.models.cart import Cart, CartItem
+from app.models.order import Order, OrderItem
+
+===== order-service/app/models/order.py =====
+import uuid6
+import enum
+from sqlalchemy import Column, String, Integer, Numeric, DateTime, ForeignKey, Enum, func
+from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.orm import relationship
+from app.db.base import Base
+
+
+class OrderStatus(str, enum.Enum):
+    draft = "draft"
+    confirmed = "confirmed"   # order-service drives this (checkout)
+    paid = "paid"             # payment-service will drive this later
+    shipped = "shipped"       # shipping-service will drive this later
+    delivered = "delivered"   # shipping-service will drive this later
+    cancelled = "cancelled"
+
+
+class Order(Base):
+    __tablename__ = "orders"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=lambda: uuid6.uuid7())
+    user_id = Column(UUID(as_uuid=True), nullable=False, index=True)
+    status = Column(Enum(OrderStatus), nullable=False, default=OrderStatus.draft)
+    total_amount = Column(Numeric(10, 2), nullable=False)
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+
+    items = relationship("OrderItem", back_populates="order", cascade="all, delete-orphan")
+
+
+class OrderItem(Base):
+    __tablename__ = "order_items"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=lambda: uuid6.uuid7())
+    order_id = Column(UUID(as_uuid=True), ForeignKey("orders.id"), nullable=False, index=True)
+
+    product_id = Column(UUID(as_uuid=True), nullable=False)
+    variant_id = Column(UUID(as_uuid=True), nullable=False)
+
+    # Full price snapshot — immutable after order creation
+    product_name = Column(String(150), nullable=False)
+    size = Column(String(20), nullable=False)
+    unit_price = Column(Numeric(10, 2), nullable=False)
+    quantity = Column(Integer, nullable=False)
+    subtotal = Column(Numeric(10, 2), nullable=False)
+
+    order = relationship("Order", back_populates="items")
+
+===== order-service/app/schemas/order_schema.py =====
+from pydantic import BaseModel, Field
+from typing import Optional, List, Any
+from uuid import UUID
+from decimal import Decimal
+from datetime import datetime
+from enum import Enum
+
+
+class CartItemAdd(BaseModel):
+    product_id: UUID
+    variant_id: UUID
+    product_name: str
+    size: str
+    unit_price: Decimal = Field(gt=0, decimal_places=2)
+    quantity: int = Field(ge=1, default=1)
+
+
+class CartItemResponse(BaseModel):
+    id: UUID
+    product_id: UUID
+    variant_id: UUID
+    product_name: str
+    size: str
+    unit_price: Decimal
+    quantity: int
+    added_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+
+class CartResponse(BaseModel):
+    id: UUID
+    status: str
+    items: List[CartItemResponse] = []
+
+    class Config:
+        from_attributes = True
+
+
+class OrderStatusEnum(str, Enum):
+    draft = "draft"
+    confirmed = "confirmed"
+    paid = "paid"
+    shipped = "shipped"
+    delivered = "delivered"
+    cancelled = "cancelled"
+
+
+class OrderItemResponse(BaseModel):
+    id: UUID
+    product_id: UUID
+    variant_id: UUID
+    product_name: str
+    size: str
+    unit_price: Decimal
+    quantity: int
+    subtotal: Decimal
+
+    class Config:
+        from_attributes = True
+
+
+class OrderResponse(BaseModel):
+    id: UUID
+    status: OrderStatusEnum
+    total_amount: Decimal
+    items: List[OrderItemResponse] = []
+    price_changes: List[Any] = []
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+===== order-service/app/services/cart_service.py =====
+import logging
+from decimal import Decimal
+from uuid import UUID
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.future import select
+from sqlalchemy.orm import selectinload
+
+from app.models.cart import Cart, CartItem, CartStatus
+
+logger = logging.getLogger(__name__)
+
+
+class CartService:
+
+    @staticmethod
+    async def get_active_cart(db: AsyncSession, user_id: UUID) -> Cart | None:
+        result = await db.execute(
+            select(Cart)
+            .options(selectinload(Cart.items))
+            .where(Cart.user_id == user_id, Cart.status == CartStatus.active)
+        )
+        return result.scalar_one_or_none()
+
+    @staticmethod
+    async def get_or_create_cart(db: AsyncSession, user_id: UUID) -> Cart:
+        cart = await CartService.get_active_cart(db, user_id)
+        if not cart:
+            cart = Cart(user_id=user_id)
+            db.add(cart)
+            await db.commit()
+            # Reload with selectinload rather than using db.refresh —
+            # refresh doesn't eagerly load relationships, so accessing
+            # cart.items after refresh would trigger a lazy load, which
+            # raises MissingGreenlet in async SQLAlchemy.
+            cart = await CartService.get_active_cart(db, user_id)
+        return cart
+
+    @staticmethod
+    async def add_item(
+        db: AsyncSession,
+        cart: Cart,
+        product_id: str,
+        variant_id: str,
+        product_name: str,
+        size: str,
+        unit_price: Decimal,
+        quantity: int,
+    ) -> CartItem:
+        # If the same variant is already in the cart, increment quantity
+        # rather than adding a second row for the same item.
+        result = await db.execute(
+            select(CartItem).where(
+                CartItem.cart_id == cart.id,
+                CartItem.variant_id == UUID(variant_id),
+            )
+        )
+        existing = result.scalar_one_or_none()
+
+        if existing:
+            existing.quantity += quantity
+            await db.commit()
+            await db.refresh(existing)
+            return existing
+
+        item = CartItem(
+            cart_id=cart.id,
+            product_id=UUID(product_id),
+            variant_id=UUID(variant_id),
+            product_name=product_name,
+            size=size,
+            unit_price=unit_price,
+            quantity=quantity,
+        )
+        db.add(item)
+        await db.commit()
+        await db.refresh(item)
+        return item
+
+    @staticmethod
+    async def remove_item(db: AsyncSession, cart: Cart, item_id: UUID) -> bool:
+        result = await db.execute(
+            select(CartItem).where(
+                CartItem.id == item_id,
+                CartItem.cart_id == cart.id,
+            )
+        )
+        item = result.scalar_one_or_none()
+        if not item:
+            return False
+        await db.delete(item)
+        await db.commit()
+        return True
+
+    @staticmethod
+    async def clear_cart(db: AsyncSession, cart: Cart) -> None:
+        for item in cart.items:
+            await db.delete(item)
+        await db.commit()
+
+    @staticmethod
+    async def mark_checked_out(db: AsyncSession, cart: Cart) -> None:
+        cart.status = CartStatus.checked_out
+        await db.commit()
+===== order-service/app/services/order_service.py =====
+import logging
+from decimal import Decimal
+from uuid import UUID
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.future import select
+from sqlalchemy.orm import selectinload
+
+from app.models.cart import Cart, CartItem
+from app.models.order import Order, OrderItem, OrderStatus
+from app.utils.product_client import get_variant, ProductServiceError
+from app.utils.events import publish_order_placed
+
+logger = logging.getLogger(__name__)
+
+
+class CheckoutError(Exception):
+    """User-facing checkout failure — price changed, item unavailable, etc."""
+    pass
+
+
+class OrderService:
+
+    @staticmethod
+    async def checkout(db: AsyncSession, cart: Cart, user_id: UUID) -> Order:
+        """
+        The core checkout flow:
+        1. Re-verify each cart item's price and availability against product-service.
+        2. Create an immutable order with locked prices.
+        3. Mark the cart as checked_out.
+        4. Publish order.placed event for payment-service to consume later.
+        """
+        # Reload cart with items eagerly — never trust the passed-in cart
+        # object's relationship state, since SQLAlchemy async doesn't support
+        # lazy loading and the items collection may not be populated.
+        result = await db.execute(
+            select(Cart)
+            .options(selectinload(Cart.items))
+            .where(Cart.id == cart.id)
+        )
+        cart = result.scalar_one_or_none()
+
+        if not cart or not cart.items:
+            raise CheckoutError("Cannot checkout an empty cart")
+
+        # Phase 1: verify all items against product-service before
+        # writing anything — fail fast if anything is unavailable.
+        verified_items = []
+        price_changes = []
+
+        for cart_item in cart.items:
+            try:
+                live = await get_variant(
+                    str(cart_item.product_id),
+                    str(cart_item.variant_id),
+                )
+            except ProductServiceError as e:
+                raise CheckoutError(str(e))
+
+            if live is None:
+                raise CheckoutError(
+                    f"'{cart_item.product_name}' ({cart_item.size}) is no longer "
+                    f"available. Please remove it from your cart and try again."
+                )
+
+            if not live["is_available"]:
+                raise CheckoutError(
+                    f"'{cart_item.product_name}' ({cart_item.size}) is currently "
+                    f"out of stock."
+                )
+
+            live_price = Decimal(str(live["unit_price"]))
+            if live_price != cart_item.unit_price:
+                price_changes.append({
+                    "item": cart_item.product_name,
+                    "size": cart_item.size,
+                    "old_price": str(cart_item.unit_price),
+                    "new_price": str(live_price),
+                })
+
+            verified_items.append({
+                "cart_item": cart_item,
+                "live_price": live_price,
+                "product_name": live["product_name"],
+                "size": live["size"],
+            })
+
+        # Phase 2: all items verified — create the order with locked prices.
+        total = sum(
+            v["live_price"] * v["cart_item"].quantity
+            for v in verified_items
+        )
+
+        order = Order(
+            user_id=user_id,
+            status=OrderStatus.confirmed,
+            total_amount=total,
+        )
+        db.add(order)
+        await db.flush()  # get order.id before creating items
+
+        order_items_payload = []
+        for v in verified_items:
+            ci = v["cart_item"]
+            subtotal = v["live_price"] * ci.quantity
+            oi = OrderItem(
+                order_id=order.id,
+                product_id=ci.product_id,
+                variant_id=ci.variant_id,
+                product_name=v["product_name"],
+                size=v["size"],
+                unit_price=v["live_price"],
+                quantity=ci.quantity,
+                subtotal=subtotal,
+            )
+            db.add(oi)
+            order_items_payload.append({
+                "product_id": str(ci.product_id),
+                "variant_id": str(ci.variant_id),
+                "product_name": v["product_name"],
+                "size": v["size"],
+                "unit_price": str(v["live_price"]),
+                "quantity": ci.quantity,
+                "subtotal": str(subtotal),
+            })
+
+        # Phase 3: mark cart as checked out, all in one transaction.
+        cart.status = "checked_out"
+        await db.commit()
+        result = await db.execute(
+            select(Order)
+            .options(selectinload(Order.items))
+            .where(Order.id == order.id)
+        )
+        order = result.scalar_one()
+        # await db.refresh(order)
+
+        # Phase 4: publish event (outside the transaction — failure here
+        # does not roll back the order).
+        publish_order_placed(
+            order_id=str(order.id),
+            user_id=str(user_id),
+            total_amount=str(total),
+            items=order_items_payload,
+        )
+
+        order._price_changes = price_changes
+        return order
+
+    @staticmethod
+    async def get_order(db: AsyncSession, order_id: UUID, user_id: UUID) -> Order | None:
+        result = await db.execute(
+            select(Order)
+            .options(selectinload(Order.items))
+            .where(Order.id == order_id, Order.user_id == user_id)
+        )
+        return result.scalar_one_or_none()
+
+    @staticmethod
+    async def list_orders(db: AsyncSession, user_id: UUID) -> list[Order]:
+        result = await db.execute(
+            select(Order)
+            .options(selectinload(Order.items))
+            .where(Order.user_id == user_id)
+            .order_by(Order.created_at.desc())
+        )
+        return result.scalars().all()
+===== order-service/app/utils/events.py =====
+import os
+import json
+import logging
+import pika
+
+logger = logging.getLogger(__name__)
+
+RABBITMQ_URL = os.getenv("RABBITMQ_URL")
+if not RABBITMQ_URL:
+    raise RuntimeError("RABBITMQ_URL is not set")
+
+EXCHANGE_NAME = "order_events"
+EXCHANGE_TYPE = "topic"
+ROUTING_KEY_ORDER_PLACED = "order.placed"
+
+
+def publish_order_placed(order_id: str, user_id: str, total_amount: str, items: list) -> None:
+    """
+    Publishes an order.placed event so payment-service (and any future
+    service) can react independently without order-service calling them.
+    Failure is logged but does not fail the checkout — the order has
+    already been confirmed in the DB. A reconciliation job or retry
+    mechanism can handle missed events in production.
+    """
+    try:
+        params = pika.URLParameters(RABBITMQ_URL)
+        connection = pika.BlockingConnection(params)
+        channel = connection.channel()
+
+        channel.exchange_declare(
+            exchange=EXCHANGE_NAME,
+            exchange_type=EXCHANGE_TYPE,
+            durable=True,
+        )
+
+        message = {
+            "event": "order.placed",
+            "order_id": order_id,
+            "user_id": user_id,
+            "total_amount": total_amount,
+            "items": items,
+        }
+
+        channel.basic_publish(
+            exchange=EXCHANGE_NAME,
+            routing_key=ROUTING_KEY_ORDER_PLACED,
+            body=json.dumps(message),
+            properties=pika.BasicProperties(
+                delivery_mode=2,
+                content_type="application/json",
+            ),
+        )
+
+        connection.close()
+        logger.info(f"Published order.placed event for order_id={order_id}")
+
+    except Exception as e:
+        logger.error(f"Failed to publish order.placed for order_id={order_id}: {e}")
+
+===== order-service/app/utils/product_client.py =====
+import os
+import httpx
+from typing import Optional
+
+PRODUCT_SERVICE_URL = os.getenv("PRODUCT_SERVICE_URL", "http://product-service:8000")
+
+
+class ProductServiceError(Exception):
+    """Raised when product-service is unreachable or returns an error."""
+    pass
+
+
+async def get_variant(product_id: str, variant_id: str) -> Optional[dict]:
+    """
+    Fetches a product from product-service and returns the matching
+    variant, or None if the product/variant doesn't exist or is unavailable.
+    Raises ProductServiceError on network failure — checkout must fail
+    loudly rather than proceeding with stale prices.
+    """
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            response = await client.get(
+                f"{PRODUCT_SERVICE_URL}/products/{product_id}"
+            )
+    except httpx.RequestError as e:
+        raise ProductServiceError(
+            f"Could not reach product-service: {e}"
+        ) from e
+
+    if response.status_code == 404:
+        return None
+    if response.status_code != 200:
+        raise ProductServiceError(
+            f"product-service returned unexpected status {response.status_code}"
+        )
+
+    product = response.json()
+    if not product.get("is_available"):
+        return None
+
+    for variant in product.get("variants", []):
+        if str(variant["id"]) == str(variant_id):
+            return {
+                "product_name": product["name"],
+                "size": variant["size"],
+                "unit_price": variant["price"],
+                "is_available": variant["is_available"],
+            }
+
+    return None
+
+===== order-service/requirements-dev.txt =====
+fastapi
+uvicorn[standard]
+sqlalchemy
+asyncpg
+psycopg2-binary
+alembic
+pydantic
+uuid6
+fastapi_jwt_auth2
+pika
+httpx
+aiosqlite
+===== order-service/requirements.txt =====
+fastapi
+uvicorn[standard]
+sqlalchemy
+asyncpg
+psycopg2-binary
+alembic
+pydantic
+uuid6
+fastapi_jwt_auth2
+pika
+httpx
+aiosqlite
+PyJWT
+pytest
+pytest-asyncio
+
+===== order-service/tests/conftest.py =====
+"""
+Shared fixtures for order-service tests.
+
+SQLite compatibility: all UUID primary/foreign key columns are stored
+as VARCHAR(36) strings. We achieve this by using a custom engine-level
+type map that replaces PostgreSQL UUID with a String-based decorator
+BEFORE the engine executes any SQL — not by mutating shared metadata.
+"""
+import os
+import uuid
+import pytest
+import pytest_asyncio
+from datetime import datetime, timedelta
+
+# Set env vars before any app imports
+os.environ.setdefault("DATABASE_URL", "sqlite+aiosqlite:///:memory:")
+os.environ.setdefault("RABBITMQ_URL", "amqp://guest:guest@localhost:5672/")
+os.environ.setdefault("JWT_SECRET", "test-secret-key-for-testing-only")
+os.environ.setdefault("PRODUCT_SERVICE_URL", "http://product-service:8000")
+
+from sqlalchemy import String, TypeDecorator
+from sqlalchemy.dialects.postgresql import UUID as PG_UUID
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
+from sqlalchemy.orm import sessionmaker
+from httpx import AsyncClient, ASGITransport
+
+from app.db.base import Base
+from app.db.session import get_db
+from app.main import app
+
+TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
+
+
+class UUIDasStr(TypeDecorator):
+    """
+    Stores UUID values as plain strings in SQLite.
+    Converts back to uuid.UUID on read so the rest of the code
+    works identically regardless of which DB is underneath.
+    """
+    impl = String(36)
+    cache_ok = True
+
+    def process_bind_param(self, value, dialect):
+        if value is None:
+            return None
+        return str(value)
+
+    def process_result_value(self, value, dialect):
+        if value is None:
+            return None
+        try:
+            return uuid.UUID(str(value))
+        except (ValueError, AttributeError):
+            return value
+
+
+def _make_test_engine():
+    """
+    Build a SQLite engine and swap all PG_UUID column types to UUIDasStr
+    on the shared metadata before create_all runs.
+    """
+    for table in Base.metadata.tables.values():
+        for col in table.columns:
+            if isinstance(col.type, PG_UUID):
+                col.type = UUIDasStr()
+    return create_async_engine(
+        TEST_DATABASE_URL,
+        connect_args={"check_same_thread": False},
+    )
+
+
+def _restore_uuid_columns():
+    """Restore PG_UUID so production engine isn't affected after tests."""
+    for table in Base.metadata.tables.values():
+        for col in table.columns:
+            if isinstance(col.type, UUIDasStr):
+                col.type = PG_UUID(as_uuid=True)
+
+
+# ── Database fixture ──────────────────────────────────────────────────────
+
+@pytest_asyncio.fixture(scope="function")
+async def db():
+    engine = _make_test_engine()
+
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+
+    session_factory = sessionmaker(
+        bind=engine,
+        class_=AsyncSession,
+        expire_on_commit=False,
+    )
+
+    async with session_factory() as session:
+        yield session
+
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.drop_all)
+
+    await engine.dispose()
+    _restore_uuid_columns()
+
+
+# ── HTTP test client ──────────────────────────────────────────────────────
+
+@pytest_asyncio.fixture(scope="function")
+async def client(db):
+    async def override_get_db():
+        yield db
+
+    app.dependency_overrides[get_db] = override_get_db
+
+    async with AsyncClient(
+        transport=ASGITransport(app=app),
+        base_url="http://test",
+    ) as ac:
+        yield ac
+
+    app.dependency_overrides.clear()
+
+
+# ── Helpers ───────────────────────────────────────────────────────────────
+
+def make_token(user_id: str, username: str = "testuser", is_staff: bool = False) -> str:
+    import jwt as pyjwt
+    payload = {
+        "sub": username,
+        "user_id": str(user_id),
+        "is_staff": is_staff,
+        "type": "access",
+        "fresh": False,
+        "iat": datetime.utcnow(),
+        "nbf": datetime.utcnow(),
+        "exp": datetime.utcnow() + timedelta(minutes=30),
+        "jti": str(uuid.uuid4()),
+    }
+    return pyjwt.encode(payload, "test-secret-key-for-testing-only", algorithm="HS256")
+
+
+def new_uuid() -> uuid.UUID:
+    return uuid.uuid4()
+===== order-service/tests/test_cart_service.py =====
+"""
+Unit tests for CartService.
+
+Tests run against an in-memory SQLite database — no real PostgreSQL or
+RabbitMQ needed. Each test gets a fresh database via the db fixture.
+"""
+import uuid
+import pytest
+import pytest_asyncio
+from decimal import Decimal
+
+from app.models.cart import Cart, CartItem, CartStatus
+from app.services.cart_service import CartService
+
+
+def _uuid() -> uuid.UUID:
+    return uuid.uuid4()
+
+
+def _str_uuid() -> str:
+    return str(uuid.uuid4())
+
+
+# ── get_active_cart ───────────────────────────────────────────────────────
+
+@pytest.mark.asyncio
+class TestGetActiveCart:
+
+    async def test_returns_none_when_no_cart_exists(self, db):
+        result = await CartService.get_active_cart(db, _uuid())
+        assert result is None
+
+    async def test_returns_active_cart_for_user(self, db):
+        user_id = _uuid()
+        cart = Cart(user_id=user_id, status=CartStatus.active)
+        db.add(cart)
+        await db.commit()
+
+        result = await CartService.get_active_cart(db, user_id)
+        assert result is not None
+        assert result.user_id == user_id
+
+    async def test_does_not_return_checked_out_cart(self, db):
+        user_id = _uuid()
+        cart = Cart(user_id=user_id, status=CartStatus.checked_out)
+        db.add(cart)
+        await db.commit()
+
+        result = await CartService.get_active_cart(db, user_id)
+        assert result is None
+
+    async def test_returns_only_the_requesting_users_cart(self, db):
+        user_a = _uuid()
+        user_b = _uuid()
+        cart_a = Cart(user_id=user_a, status=CartStatus.active)
+        db.add(cart_a)
+        await db.commit()
+
+        result = await CartService.get_active_cart(db, user_b)
+        assert result is None
+
+
+# ── get_or_create_cart ────────────────────────────────────────────────────
+
+@pytest.mark.asyncio
+class TestGetOrCreateCart:
+
+    async def test_creates_cart_when_none_exists(self, db):
+        user_id = _uuid()
+        cart = await CartService.get_or_create_cart(db, user_id)
+
+        assert cart is not None
+        assert cart.user_id == user_id
+        assert cart.status == CartStatus.active
+
+    async def test_returns_existing_cart_when_one_exists(self, db):
+        user_id = _uuid()
+        first = await CartService.get_or_create_cart(db, user_id)
+        second = await CartService.get_or_create_cart(db, user_id)
+
+        assert first.id == second.id
+
+    async def test_new_cart_has_empty_items(self, db):
+        user_id = _uuid()
+        cart = await CartService.get_or_create_cart(db, user_id)
+        assert cart.items == []
+
+
+# ── add_item ──────────────────────────────────────────────────────────────
+
+@pytest.mark.asyncio
+class TestAddItem:
+
+    async def test_adds_item_to_cart(self, db):
+        user_id = _uuid()
+        cart = await CartService.get_or_create_cart(db, user_id)
+        product_id = _str_uuid()
+        variant_id = _str_uuid()
+
+        item = await CartService.add_item(
+            db, cart,
+            product_id=product_id,
+            variant_id=variant_id,
+            product_name="Margherita",
+            size="large",
+            unit_price=Decimal("14.99"),
+            quantity=1,
+        )
+
+        assert item.product_name == "Margherita"
+        assert item.size == "large"
+        assert item.unit_price == Decimal("14.99")
+        assert item.quantity == 1
+
+    async def test_duplicate_variant_merges_quantity(self, db):
+        user_id = _uuid()
+        cart = await CartService.get_or_create_cart(db, user_id)
+        product_id = _str_uuid()
+        variant_id = _str_uuid()
+
+        await CartService.add_item(
+            db, cart,
+            product_id=product_id, variant_id=variant_id,
+            product_name="Margherita", size="large",
+            unit_price=Decimal("14.99"), quantity=1,
+        )
+        item = await CartService.add_item(
+            db, cart,
+            product_id=product_id, variant_id=variant_id,
+            product_name="Margherita", size="large",
+            unit_price=Decimal("14.99"), quantity=2,
+        )
+
+        # Should be merged into one row with quantity=3, not two separate rows
+        assert item.quantity == 3
+
+    async def test_different_variants_create_separate_rows(self, db):
+        user_id = _uuid()
+        cart = await CartService.get_or_create_cart(db, user_id)
+        product_id = _str_uuid()
+
+        await CartService.add_item(
+            db, cart,
+            product_id=product_id, variant_id=_str_uuid(),
+            product_name="Margherita", size="small",
+            unit_price=Decimal("8.99"), quantity=1,
+        )
+        await CartService.add_item(
+            db, cart,
+            product_id=product_id, variant_id=_str_uuid(),
+            product_name="Margherita", size="large",
+            unit_price=Decimal("14.99"), quantity=1,
+        )
+
+        fresh_cart = await CartService.get_active_cart(db, user_id)
+        assert len(fresh_cart.items) == 2
+
+
+# ── remove_item ───────────────────────────────────────────────────────────
+
+@pytest.mark.asyncio
+class TestRemoveItem:
+
+    async def test_removes_existing_item_returns_true(self, db):
+        user_id = _uuid()
+        cart = await CartService.get_or_create_cart(db, user_id)
+        item = await CartService.add_item(
+            db, cart,
+            product_id=_str_uuid(), variant_id=_str_uuid(),
+            product_name="Margherita", size="large",
+            unit_price=Decimal("14.99"), quantity=1,
+        )
+
+        result = await CartService.remove_item(db, cart, item.id)
+        assert result is True
+
+    async def test_removed_item_no_longer_in_cart(self, db):
+        user_id = _uuid()
+        cart = await CartService.get_or_create_cart(db, user_id)
+        item = await CartService.add_item(
+            db, cart,
+            product_id=_str_uuid(), variant_id=_str_uuid(),
+            product_name="Margherita", size="large",
+            unit_price=Decimal("14.99"), quantity=1,
+        )
+
+        await CartService.remove_item(db, cart, item.id)
+        fresh_cart = await CartService.get_active_cart(db, user_id)
+        assert len(fresh_cart.items) == 0
+
+    async def test_removing_nonexistent_item_returns_false(self, db):
+        user_id = _uuid()
+        cart = await CartService.get_or_create_cart(db, user_id)
+
+        result = await CartService.remove_item(db, cart, _uuid())
+        assert result is False
+
+    async def test_cannot_remove_item_belonging_to_another_cart(self, db):
+        user_a = _uuid()
+        user_b = _uuid()
+        cart_a = await CartService.get_or_create_cart(db, user_a)
+        cart_b = await CartService.get_or_create_cart(db, user_b)
+
+        item = await CartService.add_item(
+            db, cart_a,
+            product_id=_str_uuid(), variant_id=_str_uuid(),
+            product_name="Margherita", size="large",
+            unit_price=Decimal("14.99"), quantity=1,
+        )
+
+        # cart_b tries to remove cart_a's item — must return False
+        result = await CartService.remove_item(db, cart_b, item.id)
+        assert result is False
+
+
+# ── mark_checked_out ──────────────────────────────────────────────────────
+
+@pytest.mark.asyncio
+class TestMarkCheckedOut:
+
+    async def test_marks_cart_as_checked_out(self, db):
+        user_id = _uuid()
+        cart = await CartService.get_or_create_cart(db, user_id)
+
+        await CartService.mark_checked_out(db, cart)
+
+        fresh_cart = await CartService.get_active_cart(db, user_id)
+        # Active cart no longer exists after checkout
+        assert fresh_cart is None
+
+===== order-service/tests/test_order_routes.py =====
+"""
+Route-level tests for order-service HTTP endpoints.
+
+Tests the full HTTP layer — auth enforcement, request/response shapes,
+status codes — with product_client and events mocked so no real
+product-service or RabbitMQ is needed.
+"""
+import uuid
+import pytest
+from decimal import Decimal
+from datetime import datetime, timedelta
+from unittest.mock import patch, AsyncMock
+
+from app.services.cart_service import CartService
+
+CART_URL = "/cart"
+CART_ITEMS_URL = "/cart/items"
+CHECKOUT_URL = "/checkout"
+ORDERS_URL = "/orders"
+
+
+# ── Local helpers (defined here so no cross-file import needed) ───────────
+
+def new_uuid() -> uuid.UUID:
+    return uuid.uuid4()
+
+
+def make_token(user_id: str, username: str = "testuser", is_staff: bool = False) -> str:
+    import jwt as pyjwt
+    payload = {
+        "sub": username,
+        "user_id": str(user_id),
+        "is_staff": is_staff,
+        "type": "access",
+        "fresh": False,
+        "iat": datetime.utcnow(),
+        "nbf": datetime.utcnow(),
+        "exp": datetime.utcnow() + timedelta(minutes=30),
+        "jti": str(uuid.uuid4()),
+    }
+    return pyjwt.encode(payload, "test-secret-key-for-testing-only", algorithm="HS256")
+
+
+def _live_variant(price: str = "14.99", is_available: bool = True) -> dict:
+    return {
+        "product_name": "Margherita",
+        "size": "large",
+        "unit_price": price,
+        "is_available": is_available,
+    }
+
+
+# ── GET /cart ─────────────────────────────────────────────────────────────
+
+@pytest.mark.asyncio
+class TestGetCart:
+
+    async def test_get_cart_creates_new_cart(self, client, db):
+        user_id = str(new_uuid())
+        token = make_token(user_id=user_id, username="testuser")
+        resp = await client.get(CART_URL, headers={"Authorization": f"Bearer {token}"})
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["status"] == "active"
+        assert data["items"] == []
+
+    async def test_get_cart_returns_existing_cart(self, client, db):
+        user_id = str(new_uuid())
+        token = make_token(user_id=user_id, username="testuser")
+
+        # First call creates it
+        resp1 = await client.get(CART_URL, headers={"Authorization": f"Bearer {token}"})
+        cart_id_1 = resp1.json()["id"]
+
+        # Second call returns same cart
+        resp2 = await client.get(CART_URL, headers={"Authorization": f"Bearer {token}"})
+        cart_id_2 = resp2.json()["id"]
+
+        assert cart_id_1 == cart_id_2
+
+    async def test_get_cart_unauthenticated_401(self, client, db):
+        resp = await client.get(CART_URL)
+        assert resp.status_code == 401
+
+
+# ── POST /cart/items ──────────────────────────────────────────────────────
+
+@pytest.mark.asyncio
+class TestAddToCart:
+
+    def _item_payload(self, product_id=None, variant_id=None):
+        return {
+            "product_id": product_id or str(new_uuid()),
+            "variant_id": variant_id or str(new_uuid()),
+            "product_name": "Margherita",
+            "size": "large",
+            "unit_price": 14.99,
+            "quantity": 2,
+        }
+
+    async def test_add_item_returns_201(self, client, db):
+        user_id = str(new_uuid())
+        token = make_token(user_id=user_id, username="testuser")
+        resp = await client.post(
+            CART_ITEMS_URL,
+            json=self._item_payload(),
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 201
+
+    async def test_add_item_unauthenticated_401(self, client, db):
+        resp = await client.post(CART_ITEMS_URL, json=self._item_payload())
+        assert resp.status_code == 401
+
+    async def test_add_item_missing_required_field_422(self, client, db):
+        user_id = str(new_uuid())
+        token = make_token(user_id=user_id, username="testuser")
+        # Missing product_name
+        payload = {
+            "product_id": str(new_uuid()),
+            "variant_id": str(new_uuid()),
+            "unit_price": 14.99,
+            "quantity": 1,
+        }
+        resp = await client.post(
+            CART_ITEMS_URL,
+            json=payload,
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 422
+
+    async def test_add_item_negative_price_422(self, client, db):
+        user_id = str(new_uuid())
+        token = make_token(user_id=user_id, username="testuser")
+        payload = self._item_payload()
+        payload["unit_price"] = -5.00
+        resp = await client.post(
+            CART_ITEMS_URL,
+            json=payload,
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 422
+
+    async def test_add_item_zero_quantity_422(self, client, db):
+        user_id = str(new_uuid())
+        token = make_token(user_id=user_id, username="testuser")
+        payload = self._item_payload()
+        payload["quantity"] = 0
+        resp = await client.post(
+            CART_ITEMS_URL,
+            json=payload,
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 422
+
+
+# ── DELETE /cart/items/{item_id} ──────────────────────────────────────────
+
+@pytest.mark.asyncio
+class TestRemoveFromCart:
+
+    async def _add_item(self, client, token, product_id=None, variant_id=None):
+        payload = {
+            "product_id": product_id or str(new_uuid()),
+            "variant_id": variant_id or str(new_uuid()),
+            "product_name": "Margherita",
+            "size": "large",
+            "unit_price": 14.99,
+            "quantity": 1,
+        }
+        resp = await client.post(
+            CART_ITEMS_URL,
+            json=payload,
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        return resp.json()
+
+    async def test_remove_item_returns_204(self, client, db):
+        user_id = str(new_uuid())
+        token = make_token(user_id=user_id, username="testuser")
+
+        cart_data = await self._add_item(client, token)
+        item_id = cart_data["items"][0]["id"]
+
+        resp = await client.delete(
+            f"{CART_ITEMS_URL}/{item_id}",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 204
+
+    async def test_remove_nonexistent_item_404(self, client, db):
+        user_id = str(new_uuid())
+        token = make_token(user_id=user_id, username="testuser")
+        # Create cart first
+        await client.get(CART_URL, headers={"Authorization": f"Bearer {token}"})
+
+        resp = await client.delete(
+            f"{CART_ITEMS_URL}/{new_uuid()}",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 404
+
+    async def test_remove_item_unauthenticated_401(self, client, db):
+        resp = await client.delete(f"{CART_ITEMS_URL}/{new_uuid()}")
+        assert resp.status_code == 401
+
+    async def test_remove_item_invalid_uuid_422(self, client, db):
+        user_id = str(new_uuid())
+        token = make_token(user_id=user_id, username="testuser")
+        resp = await client.delete(
+            f"{CART_ITEMS_URL}/not-a-valid-uuid",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 422
+
+
+# ── POST /checkout ─────────────────────────────────────────────────────────
+
+@pytest.mark.asyncio
+class TestCheckout:
+
+    async def _setup_cart_with_item(self, client, token):
+        await client.post(
+            CART_ITEMS_URL,
+            json={
+                "product_id": str(new_uuid()),
+                "variant_id": str(new_uuid()),
+                "product_name": "Margherita",
+                "size": "large",
+                "unit_price": 14.99,
+                "quantity": 2,
+            },
+            headers={"Authorization": f"Bearer {token}"},
+        )
+
+    async def test_checkout_returns_201_confirmed_order(self, client, db):
+        user_id = str(new_uuid())
+        token = make_token(user_id=user_id, username="testuser")
+        await self._setup_cart_with_item(client, token)
+
+        with patch("app.services.order_service.get_variant", new_callable=AsyncMock) as mock_gv, \
+             patch("app.services.order_service.publish_order_placed"):
+            mock_gv.return_value = _live_variant()
+            resp = await client.post(
+                CHECKOUT_URL,
+                headers={"Authorization": f"Bearer {token}"},
+            )
+
+        assert resp.status_code == 201
+        data = resp.json()
+        assert data["status"] == "confirmed"
+        assert len(data["items"]) == 1
+        assert data["total_amount"] == "29.98"
+
+    async def test_checkout_unauthenticated_401(self, client, db):
+        resp = await client.post(CHECKOUT_URL)
+        assert resp.status_code == 401
+
+    async def test_checkout_empty_cart_400(self, client, db):
+        user_id = str(new_uuid())
+        token = make_token(user_id=user_id, username="testuser")
+        # Create cart but don't add items
+        await client.get(CART_URL, headers={"Authorization": f"Bearer {token}"})
+
+        resp = await client.post(
+            CHECKOUT_URL,
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 400
+
+    async def test_checkout_unavailable_product_400(self, client, db):
+        user_id = str(new_uuid())
+        token = make_token(user_id=user_id, username="testuser")
+        await self._setup_cart_with_item(client, token)
+
+        with patch("app.services.order_service.get_variant", new_callable=AsyncMock) as mock_gv, \
+             patch("app.services.order_service.publish_order_placed"):
+            mock_gv.return_value = None  # product no longer exists
+            resp = await client.post(
+                CHECKOUT_URL,
+                headers={"Authorization": f"Bearer {token}"},
+            )
+
+        assert resp.status_code == 400
+
+    async def test_checkout_product_service_down_503(self, client, db):
+        from app.utils.product_client import ProductServiceError
+        user_id = str(new_uuid())
+        token = make_token(user_id=user_id, username="testuser")
+        await self._setup_cart_with_item(client, token)
+
+        with patch("app.services.order_service.get_variant", new_callable=AsyncMock) as mock_gv, \
+             patch("app.services.order_service.publish_order_placed"):
+            mock_gv.side_effect = ProductServiceError("Connection refused")
+            resp = await client.post(
+                CHECKOUT_URL,
+                headers={"Authorization": f"Bearer {token}"},
+            )
+
+        assert resp.status_code == 400
+
+    async def test_checkout_includes_price_changes_in_response(self, client, db):
+        user_id = str(new_uuid())
+        token = make_token(user_id=user_id, username="testuser")
+        await self._setup_cart_with_item(client, token)
+
+        with patch("app.services.order_service.get_variant", new_callable=AsyncMock) as mock_gv, \
+             patch("app.services.order_service.publish_order_placed"):
+            mock_gv.return_value = _live_variant(price="19.99")  # price changed
+            resp = await client.post(
+                CHECKOUT_URL,
+                headers={"Authorization": f"Bearer {token}"},
+            )
+
+        assert resp.status_code == 201
+        data = resp.json()
+        assert len(data["price_changes"]) == 1
+
+
+# ── GET /orders ───────────────────────────────────────────────────────────
+
+@pytest.mark.asyncio
+class TestListOrders:
+
+    async def _place_order(self, client, token):
+        await client.post(
+            CART_ITEMS_URL,
+            json={
+                "product_id": str(new_uuid()),
+                "variant_id": str(new_uuid()),
+                "product_name": "Margherita",
+                "size": "large",
+                "unit_price": 14.99,
+                "quantity": 1,
+            },
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        with patch("app.services.order_service.get_variant", new_callable=AsyncMock) as mock_gv, \
+             patch("app.services.order_service.publish_order_placed"):
+            mock_gv.return_value = _live_variant()
+            return await client.post(
+                CHECKOUT_URL,
+                headers={"Authorization": f"Bearer {token}"},
+            )
+
+    async def test_list_orders_returns_200(self, client, db):
+        user_id = str(new_uuid())
+        token = make_token(user_id=user_id, username="testuser")
+        await self._place_order(client, token)
+
+        resp = await client.get(ORDERS_URL, headers={"Authorization": f"Bearer {token}"})
+        assert resp.status_code == 200
+        assert len(resp.json()) == 1
+
+    async def test_list_orders_empty_for_new_user(self, client, db):
+        user_id = str(new_uuid())
+        token = make_token(user_id=user_id, username="testuser")
+        resp = await client.get(ORDERS_URL, headers={"Authorization": f"Bearer {token}"})
+        assert resp.status_code == 200
+        assert resp.json() == []
+
+    async def test_list_orders_unauthenticated_401(self, client, db):
+        resp = await client.get(ORDERS_URL)
+        assert resp.status_code == 401
+
+    async def test_list_orders_isolated_between_users(self, client, db):
+        user_a_id = str(new_uuid())
+        user_b_id = str(new_uuid())
+        token_a = make_token(user_id=user_a_id, username="user_a")
+        token_b = make_token(user_id=user_b_id, username="user_b")
+
+        await self._place_order(client, token_a)
+
+        resp = await client.get(ORDERS_URL, headers={"Authorization": f"Bearer {token_b}"})
+        assert resp.json() == []
+
+
+# ── GET /orders/{order_id} ─────────────────────────────────────────────────
+
+@pytest.mark.asyncio
+class TestGetOrder:
+
+    async def _place_order(self, client, token):
+        await client.post(
+            CART_ITEMS_URL,
+            json={
+                "product_id": str(new_uuid()),
+                "variant_id": str(new_uuid()),
+                "product_name": "Margherita",
+                "size": "large",
+                "unit_price": 14.99,
+                "quantity": 1,
+            },
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        with patch("app.services.order_service.get_variant", new_callable=AsyncMock) as mock_gv, \
+             patch("app.services.order_service.publish_order_placed"):
+            mock_gv.return_value = _live_variant()
+            resp = await client.post(
+                CHECKOUT_URL,
+                headers={"Authorization": f"Bearer {token}"},
+            )
+        return resp.json()
+
+    async def test_get_own_order_200(self, client, db):
+        user_id = str(new_uuid())
+        token = make_token(user_id=user_id, username="testuser")
+        order = await self._place_order(client, token)
+
+        resp = await client.get(
+            f"{ORDERS_URL}/{order['id']}",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 200
+        assert resp.json()["id"] == order["id"]
+
+    async def test_get_other_users_order_404(self, client, db):
+        user_a_id = str(new_uuid())
+        user_b_id = str(new_uuid())
+        token_a = make_token(user_id=user_a_id, username="user_a")
+        token_b = make_token(user_id=user_b_id, username="user_b")
+
+        order = await self._place_order(client, token_a)
+
+        resp = await client.get(
+            f"{ORDERS_URL}/{order['id']}",
+            headers={"Authorization": f"Bearer {token_b}"},
+        )
+        assert resp.status_code == 404
+
+    async def test_get_nonexistent_order_404(self, client, db):
+        user_id = str(new_uuid())
+        token = make_token(user_id=user_id, username="testuser")
+        resp = await client.get(
+            f"{ORDERS_URL}/{new_uuid()}",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 404
+
+    async def test_get_order_unauthenticated_401(self, client, db):
+        resp = await client.get(f"{ORDERS_URL}/{new_uuid()}")
+        assert resp.status_code == 401
+
+    async def test_get_order_invalid_uuid_422(self, client, db):
+        user_id = str(new_uuid())
+        token = make_token(user_id=user_id, username="testuser")
+        resp = await client.get(
+            f"{ORDERS_URL}/not-a-valid-uuid",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 422
+
+
+# ── GET /health ───────────────────────────────────────────────────────────
+
+@pytest.mark.asyncio
+async def test_health_check(client):
+    resp = await client.get("/health")
+    assert resp.status_code == 200
+    assert resp.json() == {"status": "ok"}
+===== order-service/tests/test_order_service.py =====
+"""
+Unit tests for OrderService.
+
+product_client.get_variant and events.publish_order_placed are mocked
+so tests don't need a real product-service or RabbitMQ running.
+"""
+import uuid
+import pytest
+from decimal import Decimal
+from unittest.mock import patch, AsyncMock
+
+from app.models.cart import CartStatus
+from app.models.order import OrderStatus
+from app.services.cart_service import CartService
+from app.services.order_service import OrderService, CheckoutError
+from app.utils.product_client import ProductServiceError
+
+
+def _uuid() -> uuid.UUID:
+    return uuid.uuid4()
+
+
+def _str_uuid() -> str:
+    return str(uuid.uuid4())
+
+
+def _live_variant(
+    product_name: str = "Margherita",
+    size: str = "large",
+    price: str = "14.99",
+    is_available: bool = True,
+) -> dict:
+    """Helper that returns the shape get_variant returns when product-service is up."""
+    return {
+        "product_name": product_name,
+        "size": size,
+        "unit_price": price,
+        "is_available": is_available,
+    }
+
+
+async def _seed_cart(db, user_id: uuid.UUID, items: list[dict]) -> object:
+    """Create a cart with items for a given user."""
+    cart = await CartService.get_or_create_cart(db, user_id)
+    for item in items:
+        await CartService.add_item(
+            db, cart,
+            product_id=item["product_id"],
+            variant_id=item["variant_id"],
+            product_name=item["product_name"],
+            size=item["size"],
+            unit_price=Decimal(item["unit_price"]),
+            quantity=item.get("quantity", 1),
+        )
+    # Reload with items
+    return await CartService.get_active_cart(db, user_id)
+
+
+# ── checkout — happy path ─────────────────────────────────────────────────
+
+@pytest.mark.asyncio
+class TestCheckoutHappyPath:
+
+    async def test_checkout_creates_confirmed_order(self, db):
+        user_id = _uuid()
+        cart = await _seed_cart(db, user_id, [{
+            "product_id": _str_uuid(), "variant_id": _str_uuid(),
+            "product_name": "Margherita", "size": "large",
+            "unit_price": "14.99", "quantity": 2,
+        }])
+
+        with patch("app.services.order_service.get_variant", new_callable=AsyncMock) as mock_gv, \
+             patch("app.services.order_service.publish_order_placed") as mock_pub:
+            mock_gv.return_value = _live_variant()
+            mock_pub.return_value = None
+
+            order = await OrderService.checkout(db, cart, user_id)
+
+        assert order.status == OrderStatus.confirmed
+        assert order.user_id == user_id
+
+    async def test_checkout_locks_price_from_product_service(self, db):
+        user_id = _uuid()
+        cart = await _seed_cart(db, user_id, [{
+            "product_id": _str_uuid(), "variant_id": _str_uuid(),
+            "product_name": "Margherita", "size": "large",
+            "unit_price": "14.99", "quantity": 1,
+        }])
+
+        # product-service returns a different (live) price
+        with patch("app.services.order_service.get_variant", new_callable=AsyncMock) as mock_gv, \
+             patch("app.services.order_service.publish_order_placed"):
+            mock_gv.return_value = _live_variant(price="16.99")
+
+            order = await OrderService.checkout(db, cart, user_id)
+
+        # Order must use the live price, not the cart snapshot price
+        assert order.total_amount == Decimal("16.99")
+        assert order.items[0].unit_price == Decimal("16.99")
+
+    async def test_checkout_records_price_change(self, db):
+        user_id = _uuid()
+        cart = await _seed_cart(db, user_id, [{
+            "product_id": _str_uuid(), "variant_id": _str_uuid(),
+            "product_name": "Margherita", "size": "large",
+            "unit_price": "14.99", "quantity": 1,
+        }])
+
+        with patch("app.services.order_service.get_variant", new_callable=AsyncMock) as mock_gv, \
+             patch("app.services.order_service.publish_order_placed"):
+            mock_gv.return_value = _live_variant(price="16.99")
+
+            order = await OrderService.checkout(db, cart, user_id)
+
+        assert len(order._price_changes) == 1
+        assert order._price_changes[0]["old_price"] == "14.99"
+        assert order._price_changes[0]["new_price"] == "16.99"
+
+    async def test_checkout_no_price_changes_when_price_matches(self, db):
+        user_id = _uuid()
+        cart = await _seed_cart(db, user_id, [{
+            "product_id": _str_uuid(), "variant_id": _str_uuid(),
+            "product_name": "Margherita", "size": "large",
+            "unit_price": "14.99", "quantity": 1,
+        }])
+
+        with patch("app.services.order_service.get_variant", new_callable=AsyncMock) as mock_gv, \
+             patch("app.services.order_service.publish_order_placed"):
+            mock_gv.return_value = _live_variant(price="14.99")
+
+            order = await OrderService.checkout(db, cart, user_id)
+
+        assert order._price_changes == []
+
+    async def test_checkout_calculates_correct_total(self, db):
+        user_id = _uuid()
+        cart = await _seed_cart(db, user_id, [{
+            "product_id": _str_uuid(), "variant_id": _str_uuid(),
+            "product_name": "Margherita", "size": "large",
+            "unit_price": "14.99", "quantity": 3,
+        }])
+
+        with patch("app.services.order_service.get_variant", new_callable=AsyncMock) as mock_gv, \
+             patch("app.services.order_service.publish_order_placed"):
+            mock_gv.return_value = _live_variant(price="14.99")
+
+            order = await OrderService.checkout(db, cart, user_id)
+
+        assert order.total_amount == Decimal("44.97")
+
+    async def test_checkout_creates_order_items(self, db):
+        user_id = _uuid()
+        cart = await _seed_cart(db, user_id, [{
+            "product_id": _str_uuid(), "variant_id": _str_uuid(),
+            "product_name": "Margherita", "size": "large",
+            "unit_price": "14.99", "quantity": 2,
+        }])
+
+        with patch("app.services.order_service.get_variant", new_callable=AsyncMock) as mock_gv, \
+             patch("app.services.order_service.publish_order_placed"):
+            mock_gv.return_value = _live_variant()
+
+            order = await OrderService.checkout(db, cart, user_id)
+
+        assert len(order.items) == 1
+        assert order.items[0].quantity == 2
+        assert order.items[0].subtotal == Decimal("29.98")
+
+    async def test_checkout_marks_cart_as_checked_out(self, db):
+        user_id = _uuid()
+        cart = await _seed_cart(db, user_id, [{
+            "product_id": _str_uuid(), "variant_id": _str_uuid(),
+            "product_name": "Margherita", "size": "large",
+            "unit_price": "14.99", "quantity": 1,
+        }])
+
+        with patch("app.services.order_service.get_variant", new_callable=AsyncMock) as mock_gv, \
+             patch("app.services.order_service.publish_order_placed"):
+            mock_gv.return_value = _live_variant()
+            await OrderService.checkout(db, cart, user_id)
+
+        # Active cart should no longer exist after checkout
+        active = await CartService.get_active_cart(db, user_id)
+        assert active is None
+
+    async def test_checkout_publishes_order_placed_event(self, db):
+        user_id = _uuid()
+        cart = await _seed_cart(db, user_id, [{
+            "product_id": _str_uuid(), "variant_id": _str_uuid(),
+            "product_name": "Margherita", "size": "large",
+            "unit_price": "14.99", "quantity": 1,
+        }])
+
+        with patch("app.services.order_service.get_variant", new_callable=AsyncMock) as mock_gv, \
+             patch("app.services.order_service.publish_order_placed") as mock_pub:
+            mock_gv.return_value = _live_variant()
+            await OrderService.checkout(db, cart, user_id)
+
+        mock_pub.assert_called_once()
+        call_kwargs = mock_pub.call_args
+        assert call_kwargs is not None
+
+
+# ── checkout — failure cases ──────────────────────────────────────────────
+
+@pytest.mark.asyncio
+class TestCheckoutFailures:
+
+    async def test_empty_cart_raises_checkout_error(self, db):
+        user_id = _uuid()
+        cart = await CartService.get_or_create_cart(db, user_id)
+
+        with pytest.raises(CheckoutError, match="empty cart"):
+            await OrderService.checkout(db, cart, user_id)
+
+    async def test_unavailable_product_raises_checkout_error(self, db):
+        user_id = _uuid()
+        cart = await _seed_cart(db, user_id, [{
+            "product_id": _str_uuid(), "variant_id": _str_uuid(),
+            "product_name": "Margherita", "size": "large",
+            "unit_price": "14.99", "quantity": 1,
+        }])
+
+        with patch("app.services.order_service.get_variant", new_callable=AsyncMock) as mock_gv, \
+             patch("app.services.order_service.publish_order_placed"):
+            # product-service returns None — product doesn't exist
+            mock_gv.return_value = None
+
+            with pytest.raises(CheckoutError):
+                await OrderService.checkout(db, cart, user_id)
+
+    async def test_out_of_stock_variant_raises_checkout_error(self, db):
+        user_id = _uuid()
+        cart = await _seed_cart(db, user_id, [{
+            "product_id": _str_uuid(), "variant_id": _str_uuid(),
+            "product_name": "Margherita", "size": "large",
+            "unit_price": "14.99", "quantity": 1,
+        }])
+
+        with patch("app.services.order_service.get_variant", new_callable=AsyncMock) as mock_gv, \
+             patch("app.services.order_service.publish_order_placed"):
+            mock_gv.return_value = _live_variant(is_available=False)
+
+            with pytest.raises(CheckoutError, match="out of stock"):
+                await OrderService.checkout(db, cart, user_id)
+
+    async def test_product_service_unreachable_raises_checkout_error(self, db):
+        user_id = _uuid()
+        cart = await _seed_cart(db, user_id, [{
+            "product_id": _str_uuid(), "variant_id": _str_uuid(),
+            "product_name": "Margherita", "size": "large",
+            "unit_price": "14.99", "quantity": 1,
+        }])
+
+        with patch("app.services.order_service.get_variant", new_callable=AsyncMock) as mock_gv, \
+             patch("app.services.order_service.publish_order_placed"):
+            mock_gv.side_effect = ProductServiceError("Connection refused")
+
+            with pytest.raises(CheckoutError, match="Connection refused"):
+                await OrderService.checkout(db, cart, user_id)
+
+    async def test_failed_checkout_does_not_create_order(self, db):
+        user_id = _uuid()
+        cart = await _seed_cart(db, user_id, [{
+            "product_id": _str_uuid(), "variant_id": _str_uuid(),
+            "product_name": "Margherita", "size": "large",
+            "unit_price": "14.99", "quantity": 1,
+        }])
+
+        with patch("app.services.order_service.get_variant", new_callable=AsyncMock) as mock_gv, \
+             patch("app.services.order_service.publish_order_placed"):
+            mock_gv.return_value = None
+            with pytest.raises(CheckoutError):
+                await OrderService.checkout(db, cart, user_id)
+
+        # No order should have been written
+        orders = await OrderService.list_orders(db, user_id)
+        assert len(orders) == 0
+
+    async def test_failed_checkout_leaves_cart_active(self, db):
+        user_id = _uuid()
+        cart = await _seed_cart(db, user_id, [{
+            "product_id": _str_uuid(), "variant_id": _str_uuid(),
+            "product_name": "Margherita", "size": "large",
+            "unit_price": "14.99", "quantity": 1,
+        }])
+
+        with patch("app.services.order_service.get_variant", new_callable=AsyncMock) as mock_gv, \
+             patch("app.services.order_service.publish_order_placed"):
+            mock_gv.return_value = None
+            with pytest.raises(CheckoutError):
+                await OrderService.checkout(db, cart, user_id)
+
+        # Cart must remain active so user can fix and retry
+        active = await CartService.get_active_cart(db, user_id)
+        assert active is not None
+
+
+# ── get_order / list_orders ───────────────────────────────────────────────
+
+@pytest.mark.asyncio
+class TestGetAndListOrders:
+
+    async def _place_order(self, db, user_id):
+        cart = await _seed_cart(db, user_id, [{
+            "product_id": _str_uuid(), "variant_id": _str_uuid(),
+            "product_name": "Margherita", "size": "large",
+            "unit_price": "14.99", "quantity": 1,
+        }])
+        with patch("app.services.order_service.get_variant", new_callable=AsyncMock) as mock_gv, \
+             patch("app.services.order_service.publish_order_placed"):
+            mock_gv.return_value = _live_variant()
+            return await OrderService.checkout(db, cart, user_id)
+
+    async def test_get_order_returns_own_order(self, db):
+        user_id = _uuid()
+        order = await self._place_order(db, user_id)
+        result = await OrderService.get_order(db, order.id, user_id)
+        assert result is not None
+        assert result.id == order.id
+
+    async def test_get_order_returns_none_for_other_users_order(self, db):
+        user_a = _uuid()
+        user_b = _uuid()
+        order = await self._place_order(db, user_a)
+
+        # user_b tries to access user_a's order
+        result = await OrderService.get_order(db, order.id, user_b)
+        assert result is None
+
+    async def test_get_order_returns_none_for_nonexistent_order(self, db):
+        user_id = _uuid()
+        result = await OrderService.get_order(db, _uuid(), user_id)
+        assert result is None
+
+    async def test_list_orders_returns_only_own_orders(self, db):
+        user_a = _uuid()
+        user_b = _uuid()
+        await self._place_order(db, user_a)
+        await self._place_order(db, user_b)
+
+        orders_a = await OrderService.list_orders(db, user_a)
+        assert len(orders_a) == 1
+        assert all(o.user_id == user_a for o in orders_a)
+
+    async def test_list_orders_returns_empty_for_new_user(self, db):
+        orders = await OrderService.list_orders(db, _uuid())
+        assert orders == []
+

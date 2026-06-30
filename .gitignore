@@ -43,4 +43,4 @@ authservice_userservice.txt
 auth-service/tests/*.txt
 user-service/tests/*.txt
 product-service/tests/*.txt
-order-service/tests/*.txt
+order-service/tests/*.txtscripts/logs/

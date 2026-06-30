@@ -1,0 +1,22 @@
+# Fresh token
+TOKEN=$(curl -s -X POST http://localhost:8001/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"username":"testuser","password":"TestPass123!"}' \
+  | python3 -c "import sys,json; print(json.load(sys.stdin)['access'])")
+
+# Add item to cart
+curl -X POST http://localhost:8004/cart/items \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d "{\"product_id\":\"$PRODUCT_ID\",\"variant_id\":\"$VARIANT_ID\",\"product_name\":\"Margherita\",\"size\":\"large\",\"unit_price\":14.99,\"quantity\":1}"
+
+# Checkout — get authorization_url
+curl -s -X POST http://localhost:8004/checkout \
+  -H "Authorization: Bearer $TOKEN" \
+  | python3 -c "import sys,json; d=json.load(sys.stdin); print('Order:', d['id']); print('Pay at:', d['authorization_url'])"
+  
+sleep 5
+sudo -u postgres psql -d order_service_db \
+  -c "SELECT id, status FROM orders ORDER BY created_at DESC LIMIT 1;"
+sudo -u postgres psql -d payment_service_db \
+  -c "SELECT order_id, status, paystack_reference FROM payments ORDER BY created_at DESC LIMIT 1;"

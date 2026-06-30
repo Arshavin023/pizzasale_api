@@ -30,7 +30,7 @@ from sqlalchemy.orm import sessionmaker
 from httpx import AsyncClient, ASGITransport
 
 from app.db.base import Base
-from app.db.session import get_db
+from app.db.session import get_db, get_session_factory
 from app.main import app
 
 TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
@@ -111,6 +111,11 @@ async def db():
     )
 
     async with session_factory() as session:
+        # Stash the session_factory on the session object itself so the
+        # client fixture can retrieve it without needing a second fixture
+        # — keeps the existing `db` fixture signature unchanged for tests
+        # that only use it directly.
+        session._test_session_factory = session_factory
         yield session
 
     async with engine.begin() as conn:
@@ -121,9 +126,22 @@ async def db():
 
 
 @pytest_asyncio.fixture(scope="function")
-async def client(db):
+async def client(db, monkeypatch):
     async def override_get_db():
         yield db
+
+    # Background tasks (e.g. webhook processing after the HTTP response is
+    # sent) open their own session via get_session_factory() rather than
+    # Depends(get_db) — it's a plain function call inside payment_routes.py,
+    # not a FastAPI dependency, so app.dependency_overrides can't intercept
+    # it. We monkeypatch the function directly so it returns a factory bound
+    # to the same in-memory SQLite engine the rest of the test uses, making
+    # background-task writes visible to assertions made against `db`.
+    test_session_factory = db._test_session_factory
+    monkeypatch.setattr(
+        "app.api.payment_routes.get_session_factory",
+        lambda: test_session_factory,
+    )
 
     app.dependency_overrides[get_db] = override_get_db
 
